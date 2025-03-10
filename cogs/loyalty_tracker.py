@@ -13,7 +13,6 @@ class LoyaltyTracker(commands.Cog):
         self.db = DatabaseManager()
         self.logger = logging.getLogger("discord_bot")
         self.away_users = {}
-        self.daily_away_logs = {}
         self.channel = Config.CHANNEL_ID
         self.GRACE_PERIOD_MINUTES = Config.GRACE_PERIOD_MINUTES
         self.FEE_PER_MINUTE = Config.FEE_PER_MINUTE
@@ -139,6 +138,8 @@ class LoyaltyTracker(commands.Cog):
     async def away_status(self, ctx):
         """Check your current away status and remaining time"""
         user_id = ctx.author.id
+        # user_name = ctx.author.display_name
+        today = datetime.now().strftime("%Y-%m-%d")
 
         # Check if user is currently away
         if user_id in self.away_users:
@@ -150,13 +151,47 @@ class LoyaltyTracker(commands.Cog):
             elapsed_minutes = int(time_diff.total_seconds() / 60)
             remaining_minutes = max(0, expected_minutes - elapsed_minutes)
 
+            # Get total away time today from database
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT total_minutes FROM away_daily 
+                WHERE user_id = ? AND date = ?
+                """,
+                (user_id, today),
+            )
+            result = cursor.fetchone()
+            total_today = result[0] if result else 0
+            conn.close()
+
+            # Include current session in calculation
+            total_including_current = total_today + elapsed_minutes
+            remaining_today = max(
+                0, self.MAX_DAILY_AWAY_MINUTES - total_including_current
+            )
+
             await ctx.send(
-                f"{ctx.author.mention} You've been away for {elapsed_minutes} minutes. "
-                f"You stated you'd be away for {expected_minutes} minutes, so you have {remaining_minutes} minutes remaining."
+                f"{ctx.author.mention} You've been away for {elapsed_minutes} minutes in this session. "
+                f"You stated you'd be away for {expected_minutes} minutes, so you have {remaining_minutes} minutes remaining in this session.\n"
+                f"Today's total: {total_including_current} minutes used out of {self.MAX_DAILY_AWAY_MINUTES} minute allowance. "
+                f"Daily remaining: {remaining_today} minutes."
             )
         else:
-            # Get daily totals
-            total_today = self.get_today_away_time(user_id)
+            # Get total away time today from database instead of memory
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT total_minutes FROM away_daily 
+                WHERE user_id = ? AND date = ?
+                """,
+                (user_id, today),
+            )
+            result = cursor.fetchone()
+            total_today = result[0] if result else 0
+            conn.close()
+
             remaining_today = max(0, self.MAX_DAILY_AWAY_MINUTES - total_today)
 
             await ctx.send(
@@ -355,20 +390,3 @@ class LoyaltyTracker(commands.Cog):
         self.logger.info(
             f"User {user_name} ({user_id}) returned after {actual_minutes} minutes, expected {expected_minutes}"
         )
-
-    def get_today_away_time(self, user_id):
-        """Retrieve the total away time for a user today during work hours."""
-        today = datetime.now().strftime("%Y-%m-%d")
-
-        # Initialize user's away time if they haven't logged any today
-        if user_id not in self.daily_away_logs:
-            self.daily_away_logs[user_id] = {"date": today, "total_minutes": 0}
-
-        log = self.daily_away_logs[user_id]
-
-        # If the log is from a previous day, reset it
-        if log["date"] != today:
-            self.daily_away_logs[user_id] = {"date": today, "total_minutes": 0}
-            return 0
-
-        return log["total_minutes"]

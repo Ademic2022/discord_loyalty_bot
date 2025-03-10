@@ -1,8 +1,9 @@
+import re
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta, time
+from datetime import datetime, time
 import logging
-import re
+from cogs.commands import LoyaltyTrackerCommands
 from config import Config
 from utils.db_manager import DatabaseManager
 
@@ -21,6 +22,8 @@ class LoyaltyTracker(commands.Cog):
         self.MAX_DAILY_AWAY_MINUTES = Config.MAX_DAILY_AWAY_MINUTES
         self.WORK_START_TIME = time(*Config.WORK_START_TIME)
         self.WORK_END_TIME = time(*Config.WORK_END_TIME)
+        # self.events = LoyaltyTrackerEvents(bot)
+        self.commands = LoyaltyTrackerCommands(bot)
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -53,6 +56,164 @@ class LoyaltyTracker(commands.Cog):
         if any(indicator in content for indicator in return_indicators):
             await self._handle_return_message(message)
             return
+
+    @commands.command(name="awayreport")
+    @commands.has_permissions(administrator=True)
+    async def away_report(self, ctx, date: str = None):
+        """Get a report of away time for all users on a specific date
+
+        Args:
+            date: Optional date in YYYY-MM-DD format (defaults to today)
+        """
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
+
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+
+            # Get daily summary
+            cursor.execute(
+                """
+            SELECT user_name, total_minutes, over_limit_minutes, fee_amount
+            FROM away_daily
+            WHERE date = ?
+            ORDER BY total_minutes DESC
+            """,
+                (date,),
+            )
+
+            daily_records = cursor.fetchall()
+
+            if not daily_records:
+                await ctx.send(f"No away time records found for {date}")
+                return
+
+            # Format report using Discord code blocks for better table formatting
+            report = f"📊 **Away Time Report - {date}**\n"
+
+            # Daily summary table with proper Discord markdown
+            report += "```\n"  # Start code block for table
+            report += "Name             | Total Away | Over Limit | Fees    \n"
+            report += "-----------------|------------|------------|--------\n"
+
+            for record in daily_records:
+                name, total, over_limit, fee = record
+                # Pad each column for alignment
+                report += f"{name:<16} | {total:^10} | {over_limit:^10} | ₦{fee:<7}\n"
+
+            report += "```\n"  # End code block
+
+            # Get individual sessions
+            cursor.execute(
+                """
+            SELECT user_name, start_time, end_time, expected_minutes, actual_minutes, fee_amount
+            FROM away_time
+            WHERE date = ?
+            ORDER BY start_time
+            """,
+                (date,),
+            )
+
+            session_records = cursor.fetchall()
+
+            report += "\n**Individual Away Sessions**\n"
+
+            # Individual sessions table
+            report += "```\n"  # Start code block
+            report += "Name             | Start      | End        | Expected  | Actual    | Fees    \n"
+            report += "-----------------|------------|------------|-----------|-----------|--------\n"
+
+            for record in session_records:
+                name, start, end, expected, actual, fee = record
+                # Pad each column for alignment
+                report += f"{name:<16} | {start:<10} | {end:<10} | {expected:^9} | {actual:^9} | ₦{fee:<7}\n"
+
+            report += "```"  # End code block
+
+            conn.close()
+            await ctx.send(report)
+
+        except Exception as e:
+            self.logger.error(f"Error generating away report: {e}")
+            await ctx.send("An error occurred while retrieving the away time report.")
+
+    @commands.command(name="awaystatus")
+    async def away_status(self, ctx):
+        """Check your current away status and remaining time"""
+        user_id = ctx.author.id
+
+        # Check if user is currently away
+        if user_id in self.away_users:
+            now = datetime.now()
+            start_time = self.away_users[user_id]["start_time"]
+            expected_minutes = self.away_users[user_id]["expected_minutes"]
+
+            time_diff = now - start_time
+            elapsed_minutes = int(time_diff.total_seconds() / 60)
+            remaining_minutes = max(0, expected_minutes - elapsed_minutes)
+
+            await ctx.send(
+                f"{ctx.author.mention} You've been away for {elapsed_minutes} minutes. "
+                f"You stated you'd be away for {expected_minutes} minutes, so you have {remaining_minutes} minutes remaining."
+            )
+        else:
+            # Get daily totals
+            total_today = self.get_today_away_time(user_id)
+            remaining_today = max(0, self.MAX_DAILY_AWAY_MINUTES - total_today)
+
+            await ctx.send(
+                f"{ctx.author.mention} You're currently not marked as away. "
+                f"You've used {total_today} minutes of your {self.MAX_DAILY_AWAY_MINUTES} minute daily allowance. "
+                f"Remaining: {remaining_today} minutes."
+            )
+
+    @commands.command(name="setaway")
+    @commands.has_permissions(administrator=True)
+    async def set_away_status(self, ctx, user: discord.Member, minutes: int):
+        """Manually set a user as away (admin only)"""
+        user_id = user.id
+
+        # Check if user is already away
+        if user_id in self.away_users:
+            await ctx.send(f"❌ {user.mention} is already marked as away.")
+            return
+
+        # Record away status
+        now = datetime.now()
+        total_today = self.get_today_away_time(user_id)
+
+        self.away_users[user_id] = {
+            "start_time": now,
+            "expected_minutes": minutes,
+            "total_today": total_today,
+        }
+
+        await ctx.send(
+            f"✅ {user.mention} has been manually marked as away for {minutes} minutes."
+        )
+        self.logger.info(
+            f"Admin {ctx.author.name} marked {user.display_name} as away for {minutes} minutes"
+        )
+
+    @commands.command(name="clearaway")
+    @commands.has_permissions(administrator=True)
+    async def clear_away_status(self, ctx, user: discord.Member):
+        """Manually clear a user's away status (admin only)"""
+        user_id = user.id
+
+        # Check if user is away
+        if user_id not in self.away_users:
+            await ctx.send(f"❌ {user.mention} is not currently marked as away.")
+            return
+
+        # Clear away status
+        del self.away_users[user_id]
+
+        await ctx.send(f"✅ {user.mention}'s away status has been cleared.")
+        self.logger.info(
+            f"Admin {ctx.author.name} cleared away status for {user.display_name}"
+        )
 
     def _should_track_channel(self, channel_id):
         """Determine if we should track messages in this channel"""
@@ -198,213 +359,6 @@ class LoyaltyTracker(commands.Cog):
             f"User {user_name} ({user_id}) returned after {actual_minutes} minutes, expected {expected_minutes}"
         )
 
-    # @commands.command(name="awayreport")
-    # @commands.has_permissions(administrator=True)
-    # async def away_report(self, ctx, date: str = None):
-    #     """Get a report of away time for all users on a specific date
-
-    #     Args:
-    #         date: Optional date in YYYY-MM-DD format (defaults to today)
-    #     """
-    #     if not date:
-    #         date = datetime.now().strftime("%Y-%m-%d")
-
-    #     try:
-    #         conn = self.db.get_connection()
-    #         cursor = conn.cursor()
-
-    #         # Get daily summary
-    #         cursor.execute(
-    #             """
-    #         SELECT user_name, total_minutes, over_limit_minutes, fee_amount
-    #         FROM away_daily
-    #         WHERE date = ?
-    #         ORDER BY total_minutes DESC
-    #         """,
-    #             (date,),
-    #         )
-
-    #         daily_records = cursor.fetchall()
-
-    #         if not daily_records:
-    #             await ctx.send(f"No away time records found for {date}")
-    #             return
-
-    #         # Format report
-    #         report = f"📊 **Away Time Report - {date}**\n\n"
-    #         report += "| Name | Total Away | Over Limit | Fees |\n"
-    #         report += "|------|------------|------------|------|\n"
-
-    #         for record in daily_records:
-    #             name, total, over_limit, fee = record
-    #             report += f"| {name} | {total} mins | {over_limit} mins | ₦{fee} |\n"
-
-    #         # Get individual sessions
-    #         cursor.execute(
-    #             """
-    #         SELECT user_name, start_time, end_time, expected_minutes, actual_minutes, fee_amount
-    #         FROM away_time
-    #         WHERE date = ?
-    #         ORDER BY start_time
-    #         """,
-    #             (date,),
-    #         )
-
-    #         session_records = cursor.fetchall()
-
-    #         report += "\n\n**Individual Away Sessions**\n\n"
-    #         report += "| Name | Start | End | Expected | Actual | Fees |\n"
-    #         report += "|------|-------|-----|----------|--------|------|\n"
-
-    #         for record in session_records:
-    #             name, start, end, expected, actual, fee = record
-    #             report += f"| {name} | {start} | {end} | {expected} mins | {actual} mins | ₦{fee} |\n"
-
-    #         conn.close()
-    #         await ctx.send(report)
-
-    #     except Exception as e:
-    #         self.logger.error(f"Error generating away report: {e}")
-    #         await ctx.send("An error occurred while retrieving the away time report.")
-
-    @commands.command(name="awayreport")
-    @commands.has_permissions(administrator=True)
-    async def away_report(self, ctx, date: str = None):
-        """Get a report of away time for all users on a specific date
-
-        Args:
-            date: Optional date in YYYY-MM-DD format (defaults to today)
-        """
-        if not date:
-            date = datetime.now().strftime("%Y-%m-%d")
-
-        try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
-
-            # Get daily summary
-            cursor.execute(
-                """
-            SELECT user_name, total_minutes, over_limit_minutes, fee_amount
-            FROM away_daily
-            WHERE date = ?
-            ORDER BY total_minutes DESC
-            """,
-                (date,),
-            )
-
-            daily_records = cursor.fetchall()
-
-            if not daily_records:
-                await ctx.send(f"No away time records found for {date}")
-                return
-
-            # Format report using Discord code blocks for better table formatting
-            report = f"📊 **Away Time Report - {date}**\n"
-            
-            # Daily summary table with proper Discord markdown
-            report += "```\n"  # Start code block for table
-            report += "Name             | Total Away | Over Limit | Fees    \n"
-            report += "-----------------|------------|------------|--------\n"
-
-            for record in daily_records:
-                name, total, over_limit, fee = record
-                # Pad each column for alignment
-                report += f"{name:<16} | {total:^10} | {over_limit:^10} | ₦{fee:<7}\n"
-            
-            report += "```\n"  # End code block
-
-            # Get individual sessions
-            cursor.execute(
-                """
-            SELECT user_name, start_time, end_time, expected_minutes, actual_minutes, fee_amount
-            FROM away_time
-            WHERE date = ?
-            ORDER BY start_time
-            """,
-                (date,),
-            )
-
-            session_records = cursor.fetchall()
-
-            report += "\n**Individual Away Sessions**\n"
-            
-            # Individual sessions table
-            report += "```\n"  # Start code block
-            report += "Name             | Start      | End        | Expected  | Actual    | Fees    \n"
-            report += "-----------------|------------|------------|-----------|-----------|--------\n"
-
-            for record in session_records:
-                name, start, end, expected, actual, fee = record
-                # Pad each column for alignment
-                report += f"{name:<16} | {start:<10} | {end:<10} | {expected:^9} | {actual:^9} | ₦{fee:<7}\n"
-            
-            report += "```"  # End code block
-
-            conn.close()
-            await ctx.send(report)
-
-        except Exception as e:
-            self.logger.error(f"Error generating away report: {e}")
-            await ctx.send("An error occurred while retrieving the away time report.")
-    @commands.command(name="awaystatus")
-    async def away_status(self, ctx):
-        """Check your current away status and remaining time"""
-        user_id = ctx.author.id
-
-        # Check if user is currently away
-        if user_id in self.away_users:
-            now = datetime.now()
-            start_time = self.away_users[user_id]["start_time"]
-            expected_minutes = self.away_users[user_id]["expected_minutes"]
-
-            time_diff = now - start_time
-            elapsed_minutes = int(time_diff.total_seconds() / 60)
-            remaining_minutes = max(0, expected_minutes - elapsed_minutes)
-
-            await ctx.send(
-                f"{ctx.author.mention} You've been away for {elapsed_minutes} minutes. "
-                f"You stated you'd be away for {expected_minutes} minutes, so you have {remaining_minutes} minutes remaining."
-            )
-        else:
-            # Get daily totals
-            total_today = self.get_today_away_time(user_id)
-            remaining_today = max(0, self.MAX_DAILY_AWAY_MINUTES - total_today)
-
-            await ctx.send(
-                f"{ctx.author.mention} You're currently not marked as away. "
-                f"You've used {total_today} minutes of your {self.MAX_DAILY_AWAY_MINUTES} minute daily allowance. "
-                f"Remaining: {remaining_today} minutes."
-            )
-
-    @commands.command(name="setaway")
-    @commands.has_permissions(administrator=True)
-    async def set_away_status(self, ctx, user: discord.Member, minutes: int):
-        """Manually set a user as away (admin only)"""
-        user_id = user.id
-
-        # Check if user is already away
-        if user_id in self.away_users:
-            await ctx.send(f"❌ {user.mention} is already marked as away.")
-            return
-
-        # Record away status
-        now = datetime.now()
-        total_today = self.get_today_away_time(user_id)
-
-        self.away_users[user_id] = {
-            "start_time": now,
-            "expected_minutes": minutes,
-            "total_today": total_today,
-        }
-
-        await ctx.send(
-            f"✅ {user.mention} has been manually marked as away for {minutes} minutes."
-        )
-        self.logger.info(
-            f"Admin {ctx.author.name} marked {user.display_name} as away for {minutes} minutes"
-        )
-
     def get_today_away_time(self, user_id):
         """Retrieve the total away time for a user today during work hours."""
         today = datetime.now().strftime("%Y-%m-%d")
@@ -421,22 +375,3 @@ class LoyaltyTracker(commands.Cog):
             return 0
 
         return log["total_minutes"]
-
-    @commands.command(name="clearaway")
-    @commands.has_permissions(administrator=True)
-    async def clear_away_status(self, ctx, user: discord.Member):
-        """Manually clear a user's away status (admin only)"""
-        user_id = user.id
-
-        # Check if user is away
-        if user_id not in self.away_users:
-            await ctx.send(f"❌ {user.mention} is not currently marked as away.")
-            return
-
-        # Clear away status
-        del self.away_users[user_id]
-
-        await ctx.send(f"✅ {user.mention}'s away status has been cleared.")
-        self.logger.info(
-            f"Admin {ctx.author.name} cleared away status for {user.display_name}"
-        )

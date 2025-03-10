@@ -1,8 +1,11 @@
 from decouple import config
 from datetime import time
 
+
 class Config:
     TOKEN = config("DISCORD_TOKEN")  # Bot token from .env
+    PREFIX = config("COMMAND_PREFIX", "!")
+    LOG_PATH = config("LOG_PATH", "logs")
     CHANNEL_ID = int(config("ANNOUNCEMENT_CHANNEL_ID"))  # Channel ID for the bot
     GRACE_PERIOD_MINUTES = 1
     FEE_PER_MINUTE = 100  # ₦100 per minute

@@ -1,12 +1,14 @@
+import logging
+import asyncio
 import discord
 from discord.ext import commands
 from config import Config
 from utils.db_manager import DatabaseManager
+from utils.logger import setup_logger
 from cogs.loyalty_tracker import LoyaltyTracker
-import logging
 
 # Initialize logging
-logging.basicConfig(level=logging.INFO)
+setup_logger()
 logger = logging.getLogger("discord_bot")
 
 
@@ -16,7 +18,7 @@ intents.members = True
 intents.message_content = True
 
 # Initialize bot
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix=Config.PREFIX, intents=intents)
 
 
 # Load loyalty tracking cog
@@ -39,4 +41,4 @@ async def main():
 
 # Run bot
 if __name__ == "__main__":
-    bot.run(Config.TOKEN)
+    asyncio.run(main())

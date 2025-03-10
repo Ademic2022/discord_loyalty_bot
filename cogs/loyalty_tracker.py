@@ -22,7 +22,6 @@ class LoyaltyTracker(commands.Cog):
         self.WORK_START_TIME = Config.WORK_START_TIME
         self.WORK_END_TIME = Config.WORK_END_TIME
 
-
     @commands.Cog.listener()
     async def on_message(self, message):
         """Listen for messages indicating a user is going away or returning"""

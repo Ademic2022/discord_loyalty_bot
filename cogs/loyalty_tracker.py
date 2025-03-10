@@ -3,7 +3,6 @@ import discord
 from discord.ext import commands
 from datetime import datetime, time
 import logging
-from cogs.commands import LoyaltyTrackerCommands
 from config import Config
 from utils.db_manager import DatabaseManager
 
@@ -22,8 +21,7 @@ class LoyaltyTracker(commands.Cog):
         self.MAX_DAILY_AWAY_MINUTES = Config.MAX_DAILY_AWAY_MINUTES
         self.WORK_START_TIME = time(*Config.WORK_START_TIME)
         self.WORK_END_TIME = time(*Config.WORK_END_TIME)
-        # self.events = LoyaltyTrackerEvents(bot)
-        self.commands = LoyaltyTrackerCommands(bot)
+
 
     @commands.Cog.listener()
     async def on_message(self, message):

@@ -66,18 +66,18 @@ class DatabaseManager:
             return None
 
     def is_work_hours(self):
-        # """Check if current time is within work hours (9 AM - 5 PM on weekdays)"""
-        # now = datetime.now()
-        # current_time = now.time()
+        """Check if current time is within work hours (9 AM - 5 PM on weekdays)"""
+        now = datetime.now()
+        current_time = now.time()
 
-        # # Check if it's a weekday (0 = Monday, 4 = Friday)
-        # is_weekday = now.weekday() < 5
+        # Check if it's a weekday (0 = Monday, 4 = Friday)
+        is_weekday = now.weekday() < 5
 
-        # # Check if current time is between work hours
-        # is_work_time = self.WORK_START_TIME <= current_time <= self.WORK_END_TIME
+        # Check if current time is between work hours
+        is_work_time = self.WORK_START_TIME <= current_time <= self.WORK_END_TIME
 
-        # return is_weekday and is_work_time
-        return True
+        return is_weekday and is_work_time
+        # return True
 
     def get_today_away_time(self, user_id):
         """Get total away time for user today"""

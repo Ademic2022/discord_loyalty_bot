@@ -11,6 +11,8 @@ class DatabaseManager:
         self.logger = logging.getLogger("discord_bot")
         self.MAX_DAILY_AWAY_MINUTES = Config.MAX_DAILY_AWAY_MINUTES
         self.FEE_PER_MINUTE = Config.FEE_PER_MINUTE
+        self.WORK_START_TIME = Config.WORK_START_TIME
+        self.WORK_END_TIME = Config.WORK_END_TIME
 
     def initialize(self):
         """Initialize database tables for loyalty tracking"""

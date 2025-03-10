@@ -1,7 +1,7 @@
 import re
 import discord
 from discord.ext import commands
-from datetime import datetime, time
+from datetime import datetime
 import logging
 from config import Config
 from utils.db_manager import DatabaseManager
@@ -19,8 +19,8 @@ class LoyaltyTracker(commands.Cog):
         self.FEE_PER_MINUTE = Config.FEE_PER_MINUTE
         self.MAX_SINGLE_AWAY_MINUTES = Config.MAX_SINGLE_AWAY_MINUTES
         self.MAX_DAILY_AWAY_MINUTES = Config.MAX_DAILY_AWAY_MINUTES
-        self.WORK_START_TIME = time(*Config.WORK_START_TIME)
-        self.WORK_END_TIME = time(*Config.WORK_END_TIME)
+        self.WORK_START_TIME = Config.WORK_START_TIME
+        self.WORK_END_TIME = Config.WORK_END_TIME
 
 
     @commands.Cog.listener()

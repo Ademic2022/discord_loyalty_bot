@@ -6,7 +6,7 @@ import logging
 from cogs.messages import MessageHandler
 from config import Config
 from utils.db_manager import DatabaseManager
-from utils.utils import generate_report
+from utils.report import ReportGenerator
 
 
 class LoyaltyTracker(commands.Cog):
@@ -22,6 +22,7 @@ class LoyaltyTracker(commands.Cog):
         self.MAX_DAILY_AWAY_MINUTES = Config.MAX_DAILY_AWAY_MINUTES
         self.WORK_START_TIME = Config.WORK_START_TIME
         self.WORK_END_TIME = Config.WORK_END_TIME
+        self.report = ReportGenerator()
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -82,7 +83,7 @@ class LoyaltyTracker(commands.Cog):
                 if not daily_records:
                     await message.author.send(f"No away time records found for {date}")
                     return
-                report = generate_report(
+                report, is_pdf = self.report.generate_report(
                     date=date,
                     daily_records=daily_records,
                     session_records=session_records,
@@ -95,11 +96,17 @@ class LoyaltyTracker(commands.Cog):
                         f"You don't have any away time records for {date}"
                     )
                     return
-                report = generate_report(
+                report, is_pdf = self.report.generate_report(
                     date=date, user_record=user_record, session_records=session_records
                 )
 
-            await message.author.send(report)
+            # Send report
+            if is_pdf:
+                with open(report, "rb") as f:
+                    await message.author.send(file=discord.File(f, report))
+            else:
+                await message.author.send(report)
+
         except Exception as e:
             self.logger.error(f"Error generating away report in DM: {e}")
             await message.author.send(
@@ -128,7 +135,7 @@ class LoyaltyTracker(commands.Cog):
                     return
 
                 # Format admin report
-                report = generate_report(
+                report, is_pdf = self.report.generate_report(
                     date=date,
                     daily_records=daily_records,
                     session_records=session_records,
@@ -140,11 +147,15 @@ class LoyaltyTracker(commands.Cog):
                 if not user_record:
                     await ctx.send(f"You don't have any away time records for {date}")
                     return
-                report = generate_report(
+                report, is_pdf = self.report.generate_report(
                     date, user_record=user_record, session_records=session_records
                 )
 
-            await ctx.send(report)
+            if is_pdf:
+                with open(report, "rb") as f:
+                    await ctx.send(file=discord.File(f, report))
+            else:
+                await ctx.send(report)
 
         except Exception as e:
             self.logger.error(f"Error generating away report: {e}")

@@ -90,13 +90,13 @@ class LoyaltyTracker(commands.Cog):
 
             # Daily summary table with proper Discord markdown
             report += "```\n"  # Start code block for table
-            report += "Name             | Total Away | Over Limit | Fees    \n"
+            report += "Name             | Total Away | Over Limit | Fees(%)    \n"
             report += "-----------------|------------|------------|--------\n"
 
             for record in daily_records:
                 name, total, over_limit, fee = record
                 # Pad each column for alignment
-                report += f"{name:<16} | {total:^10} | {over_limit:^10} | ₦{fee:<7}\n"
+                report += f"{name:<16} | {total:^10} | {over_limit:^10} | {fee:<7}\n"
 
             report += "```\n"  # End code block
 
@@ -117,13 +117,13 @@ class LoyaltyTracker(commands.Cog):
 
             # Individual sessions table
             report += "```\n"  # Start code block
-            report += "Name             | Start      | End        | Expected  | Actual    | Fees    \n"
+            report += "Name             | Start      | End        | Expected  | Actual    | Fees(%)    \n"
             report += "-----------------|------------|------------|-----------|-----------|--------\n"
 
             for record in session_records:
                 name, start, end, expected, actual, fee = record
                 # Pad each column for alignment
-                report += f"{name:<16} | {start:<10} | {end:<10} | {expected:^9} | {actual:^9} | ₦{fee:<7}\n"
+                report += f"{name:<16} | {start:<10} | {end:<10} | {expected:^9} | {actual:^9} | {fee:<7}\n"
 
             report += "```"  # End code block
 

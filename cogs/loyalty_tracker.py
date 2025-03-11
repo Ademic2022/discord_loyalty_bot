@@ -6,6 +6,7 @@ import logging
 from cogs.messages import MessageHandler
 from config import Config
 from utils.db_manager import DatabaseManager
+from utils.utils import generate_report
 
 
 class LoyaltyTracker(commands.Cog):
@@ -29,11 +30,24 @@ class LoyaltyTracker(commands.Cog):
         if message.author.bot:
             return
 
-        # Only process messages in designated channels
-        if not self._should_track_channel(message.channel.id):
+        # Process both DMs and messages in designated channels
+        is_dm = isinstance(message.channel, discord.DMChannel)
+        if not is_dm and not self._should_track_channel(message.channel.id):
             return
 
         content = message.content.lower()
+
+        # Check if this is a command in DMs
+        if is_dm:
+            if content.startswith("!awayreport") or content.startswith("/awayreport"):
+                date_match = re.search(r"(\d{4}-\d{2}-\d{2})", content)
+                date = date_match.group(1) if date_match else None
+                await self._handle_direct_awayreport(message, date)
+                return
+
+            if content.startswith("!awaystatus") or content.startswith("/awaystatus"):
+                await self.away_status(message)
+                return
 
         # Check if this is a "going away" message
         away_match = re.search(r"(\d+)\s*(?:min|mins|minutes?)\s*away", content)
@@ -53,81 +67,80 @@ class LoyaltyTracker(commands.Cog):
             await self._handle_return_message(message)
             return
 
-    @commands.command(name="awayreport")
-    @commands.has_permissions(administrator=True)
-    async def away_report(self, ctx, date: str = None):
-        """Get a report of away time for all users on a specific date
+    async def _handle_direct_awayreport(self, message, date=None):
+        """Handle direct message requests for away reports"""
+        user_id = message.author.id
+        is_admin = await self._is_admin(user_id)
 
-        Args:
-            date: Optional date in YYYY-MM-DD format (defaults to today)
-        """
         if not date:
             date = datetime.now().strftime("%Y-%m-%d")
 
         try:
-            conn = self.db.get_connection()
-            cursor = conn.cursor()
+            # Fetch data based on user role
+            if is_admin:
+                daily_records, session_records = self.db._fetch_away_data(date)
+                if not daily_records:
+                    await message.author.send(f"No away time records found for {date}")
+                    return
+                report = generate_report(
+                    date, daily_records, session_records, is_admin=True
+                )
+            else:
+                user_record, session_records = self.db._fetch_away_data(date, user_id)
+                if not user_record:
+                    await message.author.send(
+                        f"You don't have any away time records for {date}"
+                    )
+                    return
+                report = generate_report(
+                    date, user_record=user_record, session_records=session_records
+                )
 
-            # Get daily summary
-            cursor.execute(
-                """
-            SELECT user_name, total_minutes, over_limit_minutes, fee_amount
-            FROM away_daily
-            WHERE date = ?
-            ORDER BY total_minutes DESC
-            """,
-                (date,),
+            await message.author.send(report)
+        except Exception as e:
+            self.logger.error(f"Error generating away report in DM: {e}")
+            await message.author.send(
+                "An error occurred while retrieving the away time report."
             )
 
-            daily_records = cursor.fetchall()
+    @commands.command(name="awayreport")
+    async def away_report(self, ctx, date: str = None):
+        """Get a report of away time on a specific date
 
-            if not daily_records:
-                await ctx.send(f"No away time records found for {date}")
-                return
+        Args:
+            date: Optional date in YYYY-MM-DD format (defaults to today)
+        """
+        user_id = ctx.author.id
+        is_admin = ctx.author.guild_permissions.administrator
 
-            # Format report using Discord code blocks for better table formatting
-            report = f"📊 **Away Time Report - {date}**\n"
+        if not date:
+            date = datetime.now().strftime("%Y-%m-%d")
 
-            # Daily summary table with proper Discord markdown
-            report += "```\n"  # Start code block for table
-            report += "Name             | Total Away | Over Limit | Fees(%)    \n"
-            report += "-----------------|------------|------------|--------\n"
+        try:
+            if is_admin:
+                daily_records, session_records = self.db._fetch_away_data(date)
 
-            for record in daily_records:
-                name, total, over_limit, fee = record
-                # Pad each column for alignment
-                report += f"{name:<16} | {total:^10} | {over_limit:^10} | {fee:<7}\n"
+                if not daily_records:
+                    await ctx.send(f"No away time records found for {date}")
+                    return
 
-            report += "```\n"  # End code block
+                # Format admin report
+                report = generate_report(
+                    date=date,
+                    daily_records=daily_records,
+                    session_records=session_records,
+                    is_admin=True,
+                )
 
-            # Get individual sessions
-            cursor.execute(
-                """
-            SELECT user_name, start_time, end_time, expected_minutes, actual_minutes, fee_amount
-            FROM away_time
-            WHERE date = ?
-            ORDER BY start_time
-            """,
-                (date,),
-            )
+            else:
+                user_record, session_records = self.db._fetch_away_data(date, user_id)
+                if not user_record:
+                    await ctx.send(f"You don't have any away time records for {date}")
+                    return
+                report = generate_report(
+                    date, user_record=user_record, session_records=session_records
+                )
 
-            session_records = cursor.fetchall()
-
-            report += "\n**Individual Away Sessions**\n"
-
-            # Individual sessions table
-            report += "```\n"  # Start code block
-            report += "Name             | Start      | End        | Expected  | Actual    | Fees(%)    \n"
-            report += "-----------------|------------|------------|-----------|-----------|--------\n"
-
-            for record in session_records:
-                name, start, end, expected, actual, fee = record
-                # Pad each column for alignment
-                report += f"{name:<16} | {start:<10} | {end:<10} | {expected:^9} | {actual:^9} | {fee:<7}\n"
-
-            report += "```"  # End code block
-
-            conn.close()
             await ctx.send(report)
 
         except Exception as e:
@@ -138,7 +151,6 @@ class LoyaltyTracker(commands.Cog):
     async def away_status(self, ctx):
         """Check your current away status and remaining time"""
         user_id = ctx.author.id
-        # user_name = ctx.author.display_name
         today = datetime.now().strftime("%Y-%m-%d")
 
         # Check if user is currently away
@@ -255,6 +267,14 @@ class LoyaltyTracker(commands.Cog):
         # Check if the channel_id is in the allowed list
         return channel_id in allowed_channel_ids
 
+    async def _is_admin(self, user_id):
+        """Check if a user has admin permissions"""
+        for guild in self.bot.guilds:
+            member = guild.get_member(user_id)
+            if member and member.guild_permissions.administrator:
+                return True
+        return False
+
     async def _handle_away_message(self, message, match):
         """Handle when a user announces they're going away"""
         if not self.db.is_work_hours():
@@ -370,6 +390,7 @@ class LoyaltyTracker(commands.Cog):
         elif daily_over_limit > 0:
             await MessageHandler.daily_over_limit(message, daily_over_limit, daily_fee)
         else:
+            print("Message", message)
             await MessageHandler.return_on_time(message, actual_minutes)
 
         self.logger.info(

@@ -207,3 +207,57 @@ class DatabaseManager:
             )
         except Exception as e:
             self.logger.error(f"Error recording away session: {e}")
+
+    def _fetch_away_data(self, date, user_id=None):
+        """Fetch away data from the database."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        # If user_id is provided, fetch data for a specific user, else for all users (admin view)
+        if user_id:
+            cursor.execute(
+                """
+                SELECT user_name, total_minutes, over_limit_minutes, fee_amount
+                FROM away_daily
+                WHERE user_id = ? AND date = ?
+                """,
+                (user_id, date),
+            )
+            user_record = cursor.fetchone()
+
+            cursor.execute(
+                """
+                SELECT start_time, end_time, expected_minutes, actual_minutes, fee_amount
+                FROM away_time
+                WHERE user_id = ? AND date = ?
+                ORDER BY start_time
+                """,
+                (user_id, date),
+            )
+            session_records = cursor.fetchall()
+
+            return user_record, session_records
+        else:
+            cursor.execute(
+                """
+                SELECT user_name, total_minutes, over_limit_minutes, fee_amount
+                FROM away_daily
+                WHERE date = ?
+                ORDER BY total_minutes DESC
+                """,
+                (date,),
+            )
+            daily_records = cursor.fetchall()
+
+            cursor.execute(
+                """
+                SELECT user_name, start_time, end_time, expected_minutes, actual_minutes, fee_amount
+                FROM away_time
+                WHERE date = ?
+                ORDER BY start_time
+                """,
+                (date,),
+            )
+            session_records = cursor.fetchall()
+
+            return daily_records, session_records

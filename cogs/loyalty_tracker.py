@@ -213,7 +213,7 @@ class LoyaltyTracker(commands.Cog):
 
         # Record away status
         now = datetime.now()
-        total_today = self.get_today_away_time(user_id)
+        total_today = self.db.get_today_away_time(user_id)
 
         self.away_users[user_id] = {
             "start_time": now,
@@ -280,7 +280,7 @@ class LoyaltyTracker(commands.Cog):
             minutes_away = self.MAX_SINGLE_AWAY_MINUTES
 
         # Check daily allowance
-        total_today = self.get_today_away_time(user_id)
+        total_today = self.db.get_today_away_time(user_id)
         remaining_today = self.MAX_DAILY_AWAY_MINUTES - total_today
 
         if remaining_today <= 0:

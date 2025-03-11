@@ -33,7 +33,6 @@ class LoyaltyTracker(commands.Cog):
         if not self._should_track_channel(message.channel.id):
             return
 
-        # Convert message content to lowercase for easier matching
         content = message.content.lower()
 
         # Check if this is a "going away" message

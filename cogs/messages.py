@@ -33,7 +33,7 @@ class MessageHandler:
     async def away_acknowledge(message, minutes_away):
         await message.channel.send(
             f"👋 {message.author.mention} You're marked as away for {minutes_away} minutes. "
-            f"Please type 'back' when you return. Grace period: {Config.GRACE_PERIOD_MINUTES} minutes."
+            f"Please type 'back' when you return."
         )
 
     @staticmethod

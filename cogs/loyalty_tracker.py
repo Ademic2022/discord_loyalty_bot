@@ -193,7 +193,6 @@ class LoyaltyTracker(commands.Cog):
                 f"Daily remaining: {remaining_today} minutes."
             )
         else:
-            # Get total away time today from database instead of memory
             conn = self.db.get_connection()
             cursor = conn.cursor()
             cursor.execute(

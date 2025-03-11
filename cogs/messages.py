@@ -30,15 +30,16 @@ class MessageHandler:
         )
 
     @staticmethod
-    async def away_acknowledge(message, minutes_away):
-        await message.channel.send(
+    async def away_acknowledge(message, minutes_away, channel):
+        
+        await channel.send(
             f"👋 {message.author.mention} You're marked as away for {minutes_away} minutes. "
             f"Please type 'back' when you return."
         )
 
     @staticmethod
-    async def return_on_time(message, actual_minutes):
-        await message.channel.send(
+    async def return_on_time(message, actual_minutes, channel):
+        await channel.send(
             f"✅ {message.author.mention} Welcome back on time after {actual_minutes} minutes!"
         )
 
@@ -72,8 +73,9 @@ class MessageHandler:
         accumulated_percentage,
         daily_over_limit,
         total_fee,
+        channel,
     ):
-        await message.channel.send(
+        await channel.send(
             f"⏰ {message.author.mention} Welcome back after {actual_minutes} minutes! "
             f"You were {late_minutes} minutes late (beyond your stated {expected_minutes} + {Config.GRACE_PERIOD_MINUTES} grace). "
             f"Lateness penalty: {accumulated_percentage:.4%}.\n"

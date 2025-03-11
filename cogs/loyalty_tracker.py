@@ -316,7 +316,8 @@ class LoyaltyTracker(commands.Cog):
         }
 
         # Acknowledge
-        await MessageHandler.away_acknowledge(message, minutes_away)
+        channel = self.bot.get_channel(self.channel)
+        await MessageHandler.away_acknowledge(message, minutes_away, channel)
         self.logger.info(
             f"User {user_name} ({user_id}) marked away for {minutes_away} minutes at {now}"
         )
@@ -369,6 +370,7 @@ class LoyaltyTracker(commands.Cog):
         del self.away_users[user_id]
 
         # Send response based on outcome
+        channel = self.bot.get_channel(self.channel)
         if late_minutes > 0 and daily_over_limit > 0:
             await MessageHandler.return_late_and_daily_over(
                 message,
@@ -378,6 +380,7 @@ class LoyaltyTracker(commands.Cog):
                 accumulated_percentage,
                 daily_over_limit,
                 accumulated_percentage + daily_fee,
+                channel,
             )
         elif late_minutes > 0:
             await MessageHandler.return_late(
@@ -386,12 +389,13 @@ class LoyaltyTracker(commands.Cog):
                 expected_minutes,
                 late_minutes,
                 accumulated_percentage,
+                channel,
             )
         elif daily_over_limit > 0:
-            await MessageHandler.daily_over_limit(message, daily_over_limit, daily_fee)
+            await MessageHandler.daily_over_limit(message, daily_over_limit, daily_fee, channel)
         else:
-            print("Message", message)
-            await MessageHandler.return_on_time(message, actual_minutes)
+            channel = self.bot.get_channel(self.channel)
+            await MessageHandler.return_on_time(message, actual_minutes, channel)
 
         self.logger.info(
             f"User {user_name} ({user_id}) returned after {actual_minutes} minutes, expected {expected_minutes}"

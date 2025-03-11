@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 import logging
+from cogs.messages import MessageHandler
 from config import Config
 from utils.db_manager import DatabaseManager
 
@@ -15,7 +16,7 @@ class LoyaltyTracker(commands.Cog):
         self.away_users = {}
         self.channel = Config.CHANNEL_ID
         self.GRACE_PERIOD_MINUTES = Config.GRACE_PERIOD_MINUTES
-        self.FEE_PER_MINUTE = Config.FEE_PER_MINUTE
+        self.FEE_PERCENTAGE_PER_MINUTE = Config.FEE_PERCENTAGE_PER_MINUTE
         self.MAX_SINGLE_AWAY_MINUTES = Config.MAX_SINGLE_AWAY_MINUTES
         self.MAX_DAILY_AWAY_MINUTES = Config.MAX_DAILY_AWAY_MINUTES
         self.WORK_START_TIME = Config.WORK_START_TIME
@@ -266,16 +267,13 @@ class LoyaltyTracker(commands.Cog):
 
         # Check if user is already away
         if user_id in self.away_users:
-            await message.channel.send(
-                f"{message.author.mention} You're already marked as away. Please type 'back' when you return."
-            )
+            await MessageHandler.already_away(message)
             return
 
         # Check if exceeds maximum single away time
         if minutes_away > self.MAX_SINGLE_AWAY_MINUTES:
-            await message.channel.send(
-                f"⚠️ {message.author.mention} Your requested time away ({minutes_away} minutes) exceeds the maximum single away time "
-                f"({self.MAX_SINGLE_AWAY_MINUTES} minutes). You've been marked as away for {self.MAX_SINGLE_AWAY_MINUTES} minutes instead."
+            await MessageHandler.exceeds_single_away(
+                message, self.MAX_SINGLE_AWAY_MINUTES
             )
             minutes_away = self.MAX_SINGLE_AWAY_MINUTES
 
@@ -284,14 +282,10 @@ class LoyaltyTracker(commands.Cog):
         remaining_today = self.MAX_DAILY_AWAY_MINUTES - total_today
 
         if remaining_today <= 0:
-            await message.channel.send(
-                f"⚠️ {message.author.mention} You have used all your away time for today ({self.MAX_DAILY_AWAY_MINUTES} minutes). "
-                f"Additional time away will incur a fee of ₦{self.FEE_PER_MINUTE} per minute."
-            )
+            await MessageHandler.exceeded_daily_limit(message)
         elif minutes_away > remaining_today:
-            await message.channel.send(
-                f"⚠️ {message.author.mention} You only have {remaining_today} minutes of away time remaining today. "
-                f"If you use all {minutes_away} minutes, you'll exceed your daily limit and incur fees."
+            await MessageHandler.near_daily_limit(
+                message, remaining_today, minutes_away
             )
 
         # Record away status
@@ -303,10 +297,7 @@ class LoyaltyTracker(commands.Cog):
         }
 
         # Acknowledge
-        await message.channel.send(
-            f"👋 {message.author.mention} You're marked as away for {minutes_away} minutes. "
-            f"Please type 'back' when you return. Grace period: {self.GRACE_PERIOD_MINUTES} minutes."
-        )
+        await MessageHandler.away_acknowledge(message, minutes_away)
         self.logger.info(
             f"User {user_name} ({user_id}) marked away for {minutes_away} minutes at {now}"
         )
@@ -334,10 +325,10 @@ class LoyaltyTracker(commands.Cog):
             0, actual_minutes - expected_minutes - self.GRACE_PERIOD_MINUTES
         )
 
-        # Calculate fee if applicable
-        fee_amount = 0
+        # Calculate percentage fee if applicable
+        accumulated_percentage = 0
         if late_minutes > 0:
-            fee_amount = late_minutes * self.FEE_PER_MINUTE
+            accumulated_percentage = late_minutes * self.FEE_PERCENTAGE_PER_MINUTE
 
         # Record session
         self.db.record_away_session(
@@ -347,7 +338,7 @@ class LoyaltyTracker(commands.Cog):
             now,
             expected_minutes,
             actual_minutes,
-            fee_amount,
+            accumulated_percentage,
         )
 
         # Update daily totals
@@ -360,32 +351,27 @@ class LoyaltyTracker(commands.Cog):
 
         # Send response based on outcome
         if late_minutes > 0 and daily_over_limit > 0:
-            # Both late and over daily limit
-            await message.channel.send(
-                f"⏰ {message.author.mention} Welcome back after {actual_minutes} minutes! "
-                f"You were {late_minutes} minutes late (beyond your stated {expected_minutes} + {self.GRACE_PERIOD_MINUTES} grace). "
-                f"Fee: ₦{fee_amount}.\n"
-                f"Additionally, you've exceeded your daily away limit by {daily_over_limit} minutes. "
-                f"Total fees: ₦{fee_amount + daily_fee}"
+            await MessageHandler.return_late_and_daily_over(
+                message,
+                actual_minutes,
+                expected_minutes,
+                late_minutes,
+                accumulated_percentage,
+                daily_over_limit,
+                accumulated_percentage + daily_fee,
             )
         elif late_minutes > 0:
-            # Just late
-            await message.channel.send(
-                f"⏰ {message.author.mention} Welcome back after {actual_minutes} minutes! "
-                f"You were {late_minutes} minutes late (beyond your stated {expected_minutes} + {self.GRACE_PERIOD_MINUTES} grace). "
-                f"Fee: ₦{fee_amount}"
+            await MessageHandler.return_late(
+                message,
+                actual_minutes,
+                expected_minutes,
+                late_minutes,
+                accumulated_percentage,
             )
         elif daily_over_limit > 0:
-            # Just over daily limit
-            await message.channel.send(
-                f"✅ {message.author.mention} Welcome back on time! However, you've exceeded your daily away limit "
-                f"by {daily_over_limit} minutes. Fee: ₦{daily_fee}"
-            )
+            await MessageHandler.daily_over_limit(message, daily_over_limit, daily_fee)
         else:
-            # On time and within limits
-            await message.channel.send(
-                f"✅ {message.author.mention} Welcome back on time after {actual_minutes} minutes!"
-            )
+            await MessageHandler.return_on_time(message, actual_minutes)
 
         self.logger.info(
             f"User {user_name} ({user_id}) returned after {actual_minutes} minutes, expected {expected_minutes}"

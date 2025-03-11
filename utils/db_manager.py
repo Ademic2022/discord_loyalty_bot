@@ -10,7 +10,7 @@ class DatabaseManager:
         self.db_path = db_path
         self.logger = logging.getLogger("discord_bot")
         self.MAX_DAILY_AWAY_MINUTES = Config.MAX_DAILY_AWAY_MINUTES
-        self.FEE_PER_MINUTE = Config.FEE_PER_MINUTE
+        self.FEE_PERCENTAGE_PER_MINUTE = Config.FEE_PERCENTAGE_PER_MINUTE
         self.WORK_START_TIME = Config.WORK_START_TIME
         self.WORK_END_TIME = Config.WORK_END_TIME
 
@@ -69,17 +69,17 @@ class DatabaseManager:
 
     def is_work_hours(self):
         """Check if current time is within work hours (9 AM - 5 PM on weekdays)"""
-        now = datetime.now()
-        current_time = now.time()
+        # now = datetime.now()
+        # current_time = now.time()
 
-        # Check if it's a weekday (0 = Monday, 4 = Friday)
-        is_weekday = now.weekday() < 5
+        # # Check if it's a weekday (0 = Monday, 4 = Friday)
+        # is_weekday = now.weekday() < 5
 
-        # Check if current time is between work hours
-        is_work_time = self.WORK_START_TIME <= current_time <= self.WORK_END_TIME
+        # # Check if current time is between work hours
+        # is_work_time = self.WORK_START_TIME <= current_time <= self.WORK_END_TIME
 
-        return is_weekday and is_work_time
-        # return True
+        # return is_weekday and is_work_time
+        return True
 
     def get_today_away_time(self, user_id):
         """Get total away time for user today"""
@@ -131,7 +131,7 @@ class DatabaseManager:
                 # Update existing record
                 new_total = result[0] + minutes_away
                 over_limit = max(0, new_total - self.MAX_DAILY_AWAY_MINUTES)
-                fee_amount = over_limit * self.FEE_PER_MINUTE
+                fee_amount = over_limit * self.FEE_PERCENTAGE_PER_MINUTE
 
                 cursor.execute(
                     """
@@ -146,7 +146,7 @@ class DatabaseManager:
             else:
                 # Create new record
                 over_limit = max(0, minutes_away - self.MAX_DAILY_AWAY_MINUTES)
-                fee_amount = over_limit * self.FEE_PER_MINUTE
+                fee_amount = over_limit * self.FEE_PERCENTAGE_PER_MINUTE
 
                 cursor.execute(
                     """

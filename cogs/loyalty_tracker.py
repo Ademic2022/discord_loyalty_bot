@@ -83,7 +83,10 @@ class LoyaltyTracker(commands.Cog):
                     await message.author.send(f"No away time records found for {date}")
                     return
                 report = generate_report(
-                    date, daily_records, session_records, is_admin=True
+                    date=date,
+                    daily_records=daily_records,
+                    session_records=session_records,
+                    is_admin=True,
                 )
             else:
                 user_record, session_records = self.db._fetch_away_data(date, user_id)
@@ -93,7 +96,7 @@ class LoyaltyTracker(commands.Cog):
                     )
                     return
                 report = generate_report(
-                    date, user_record=user_record, session_records=session_records
+                    date=date, user_record=user_record, session_records=session_records
                 )
 
             await message.author.send(report)
@@ -392,7 +395,9 @@ class LoyaltyTracker(commands.Cog):
                 channel,
             )
         elif daily_over_limit > 0:
-            await MessageHandler.daily_over_limit(message, daily_over_limit, daily_fee, channel)
+            await MessageHandler.daily_over_limit(
+                message, daily_over_limit, daily_fee, channel
+            )
         else:
             channel = self.bot.get_channel(self.channel)
             await MessageHandler.return_on_time(message, actual_minutes, channel)

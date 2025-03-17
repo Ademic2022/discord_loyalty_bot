@@ -304,9 +304,7 @@ class LoyaltyTracker(commands.Cog):
 
         # Check if exceeds maximum single away time
         if minutes_away > self.MAX_SINGLE_AWAY_MINUTES:
-            await MessageHandler.exceeds_single_away(
-                message, self.MAX_SINGLE_AWAY_MINUTES
-            )
+            await MessageHandler.exceeds_single_away(message, minutes_away)
             minutes_away = self.MAX_SINGLE_AWAY_MINUTES
 
         # Check daily allowance
@@ -396,6 +394,7 @@ class LoyaltyTracker(commands.Cog):
                 channel,
             )
         elif late_minutes > 0:
+            print("return_late")
             await MessageHandler.return_late(
                 message,
                 actual_minutes,

@@ -6,7 +6,6 @@ from config import Config
 from utils.db_manager import DatabaseManager
 from utils.logger import setup_logger
 from cogs.loyalty_tracker import LoyaltyTracker
-from keep_alive import keep_alive
 
 # Initialize logging
 setup_logger()

@@ -1,26 +1,21 @@
-from config import Config
+from cogs.embed import EmbedHandler
 
 
 class MessageHandler:
     @staticmethod
     async def already_away(message):
-        await message.channel.send(
-            f"{message.author.mention} You're already marked as away. Please type 'back' when you return."
-        )
+        embed = EmbedHandler.already_away_embed(message)
+        await message.channel.send(embed=embed)
 
     @staticmethod
     async def exceeds_single_away(message, minutes_away):
-        await message.channel.send(
-            f"⚠️ {message.author.mention} Your requested time away ({minutes_away} minutes) exceeds the maximum single away time "
-            f"({Config.MAX_SINGLE_AWAY_MINUTES} minutes). You've been marked as away for {Config.MAX_SINGLE_AWAY_MINUTES} minutes instead."
-        )
+        embed = EmbedHandler.exceeds_single_away_embed(message, minutes_away)
+        await message.channel.send(embed=embed)
 
     @staticmethod
     async def exceeded_daily_limit(message):
-        await message.channel.send(
-            f"⚠️ {message.author.mention} You have used all your away time for today ({Config.MAX_DAILY_AWAY_MINUTES} minutes). "
-            f"Additional time away will incur a lateness penalty of {Config.FEE_PERCENTAGE_PER_MINUTE:.4%} per minute."
-        )
+        embed = EmbedHandler.exceeded_daily_limit_embed()
+        await message.channel.send(embed=embed)
 
     @staticmethod
     async def near_daily_limit(message, remaining_today, minutes_away):
@@ -31,17 +26,15 @@ class MessageHandler:
 
     @staticmethod
     async def away_acknowledge(message, minutes_away, channel):
-        
-        await channel.send(
-            f"👋 {message.author.mention} You're marked as away for {minutes_away} minutes. "
-            f"Please type 'back' when you return."
-        )
+
+        embed = EmbedHandler.away_acknowledge_embed(message, minutes_away)
+
+        await channel.send(embed=embed)
 
     @staticmethod
     async def return_on_time(message, actual_minutes, channel):
-        await channel.send(
-            f"✅ {message.author.mention} Welcome back on time after {actual_minutes} minutes!"
-        )
+        embed = EmbedHandler.return_on_time_embed(message, actual_minutes)
+        await channel.send(embed=embed)
 
     @staticmethod
     async def return_late(
@@ -51,18 +44,21 @@ class MessageHandler:
         late_minutes,
         accumulated_percentage,
     ):
-        await message.channel.send(
-            f"⏰ {message.author.mention} Welcome back after {actual_minutes} minutes! "
-            f"You were {late_minutes} minutes late (beyond your stated {expected_minutes} + {Config.GRACE_PERIOD_MINUTES} grace). "
-            f"Lateness penalty: {accumulated_percentage:.4%}."
+        embed = EmbedHandler.return_late_embed(
+            message,
+            actual_minutes,
+            expected_minutes,
+            late_minutes,
+            accumulated_percentage,
         )
+        await message.channel.send(embed=embed)
 
     @staticmethod
     async def daily_over_limit(message, daily_over_limit, daily_fee):
-        await message.channel.send(
-            f"✅ {message.author.mention} Welcome back on time! However, you've exceeded your daily away limit "
-            f"by {daily_over_limit} minutes. Lateness penalty: {daily_fee:.4%}"
+        embed = EmbedHandler.daily_over_limit_embed(
+            message, daily_over_limit, daily_fee
         )
+        await message.channel.send(embed=embed)
 
     @staticmethod
     async def return_late_and_daily_over(
@@ -75,10 +71,13 @@ class MessageHandler:
         total_fee,
         channel,
     ):
-        await channel.send(
-            f"⏰ {message.author.mention} Welcome back after {actual_minutes} minutes! "
-            f"You were {late_minutes} minutes late (beyond your stated {expected_minutes} + {Config.GRACE_PERIOD_MINUTES} grace). "
-            f"Lateness penalty: {accumulated_percentage:.4%}.\n"
-            f"Additionally, you've exceeded your daily away limit by {daily_over_limit} minutes. "
-            f"Total lateness penalty: {total_fee:.4%}"
+        embed = EmbedHandler.return_late_and_daily_over_embed(
+            message,
+            actual_minutes,
+            expected_minutes,
+            late_minutes,
+            accumulated_percentage,
+            daily_over_limit,
+            total_fee,
         )
+        await channel.send(embed=embed)

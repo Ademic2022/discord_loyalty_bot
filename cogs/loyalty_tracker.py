@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 import logging
+from cogs.embed import EmbedHandler
 from cogs.messages import MessageHandler
 from config import Config
 from utils.db_manager import DatabaseManager
@@ -196,13 +197,16 @@ class LoyaltyTracker(commands.Cog):
             remaining_today = max(
                 0, self.MAX_DAILY_AWAY_MINUTES - total_including_current
             )
-
-            await ctx.send(
-                f"{ctx.author.mention} You've been away for {elapsed_minutes} minutes in this session. "
-                f"You stated you'd be away for {expected_minutes} minutes, so you have {remaining_minutes} minutes remaining in this session.\n"
-                f"Today's total: {total_including_current} minutes used out of {self.MAX_DAILY_AWAY_MINUTES} minute allowance. "
-                f"Daily remaining: {remaining_today} minutes."
+            embed = EmbedHandler.away_status_message_embed(
+                ctx,
+                elapsed_minutes,
+                expected_minutes,
+                remaining_minutes,
+                total_including_current,
+                self.MAX_DAILY_AWAY_MINUTES,
+                remaining_today,
             )
+            await ctx.send(embed=embed)
         else:
             conn = self.db.get_connection()
             cursor = conn.cursor()
@@ -219,11 +223,10 @@ class LoyaltyTracker(commands.Cog):
 
             remaining_today = max(0, self.MAX_DAILY_AWAY_MINUTES - total_today)
 
-            await ctx.send(
-                f"{ctx.author.mention} You're currently not marked as away. "
-                f"You've used {total_today} minutes of your {self.MAX_DAILY_AWAY_MINUTES} minute daily allowance. "
-                f"Remaining: {remaining_today} minutes."
+            embed = EmbedHandler.send_not_away_status_message_embed(
+                ctx, total_today, self.MAX_DAILY_AWAY_MINUTES, remaining_today
             )
+            await ctx.send(embed=embed)
 
     @commands.command(name="setaway")
     @commands.has_permissions(administrator=True)
@@ -245,10 +248,9 @@ class LoyaltyTracker(commands.Cog):
             "expected_minutes": minutes,
             "total_today": total_today,
         }
+        embed = EmbedHandler.manual_away_message_embed(ctx, user, minutes)
+        await ctx.send(embed=embed)
 
-        await ctx.send(
-            f"✅ {user.mention} has been manually marked as away for {minutes} minutes."
-        )
         self.logger.info(
             f"Admin {ctx.author.name} marked {user.display_name} as away for {minutes} minutes"
         )
@@ -266,8 +268,8 @@ class LoyaltyTracker(commands.Cog):
 
         # Clear away status
         del self.away_users[user_id]
-
-        await ctx.send(f"✅ {user.mention}'s away status has been cleared.")
+        embed = EmbedHandler.status_cleared_message_embed(user)
+        await ctx.send(embed=embed)
         self.logger.info(
             f"Admin {ctx.author.name} cleared away status for {user.display_name}"
         )

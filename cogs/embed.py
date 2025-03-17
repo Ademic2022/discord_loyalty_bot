@@ -223,3 +223,106 @@ class EmbedHandler:
         embed.set_footer(text="The counter will reset at midnight server time")
 
         return embed
+
+    @staticmethod
+    def away_status_message_embed(
+        ctx,
+        elapsed_minutes,
+        expected_minutes,
+        remaining_minutes,
+        total_including_current,
+        MAX_DAILY_AWAY_MINUTES,
+        remaining_today,
+    ):
+        embed = discord.Embed(
+            title="🕒 Away Status Update",
+            description=f"{ctx.author.mention} has been away for **{elapsed_minutes}** minutes in this session.",
+            color=discord.Color.blue(),
+        )
+
+        # Current session information
+        embed.add_field(
+            name="Current Session",
+            value=f"• Expected: **{expected_minutes}** minutes\n• Remaining: **{remaining_minutes}** minutes",
+            inline=False,
+        )
+
+        # Daily totals
+        embed.add_field(
+            name="Daily Summary",
+            value=f"• Used: **{total_including_current}** / {MAX_DAILY_AWAY_MINUTES} minutes\n• Remaining: **{remaining_today}** minutes",
+            inline=False,
+        )
+
+        # Progress bar for daily usage (optional)
+        progress = min(1.0, total_including_current / MAX_DAILY_AWAY_MINUTES)
+        bar_length = 10
+        filled_bars = int(progress * bar_length)
+        progress_bar = "█" * filled_bars + "░" * (bar_length - filled_bars)
+
+        embed.add_field(
+            name="Daily Usage",
+            value=f"`{progress_bar}` {int(progress * 100)}%",
+            inline=False,
+        )
+
+        # You can add a thumbnail if desired
+        # embed.set_thumbnail(url="https://i.imgur.com/YOUR_TIMER_IMAGE.png")
+
+        return embed
+
+    @staticmethod
+    def send_not_away_status_message_embed(
+        ctx, total_today, MAX_DAILY_AWAY_MINUTES, remaining_today
+    ):
+        embed = discord.Embed(
+            title="✅ Status Check",
+            description=f"{ctx.author.mention} is currently **not marked as away**.",
+            color=discord.Color.green(),
+        )
+
+        # Daily usage summary
+        embed.add_field(
+            name="Daily Away Time",
+            value=f"• Used: **{total_today}** / {MAX_DAILY_AWAY_MINUTES} minutes\n• Remaining: **{remaining_today}** minutes",
+            inline=False,
+        )
+
+        # Progress bar for daily usage
+        progress = min(1.0, total_today / MAX_DAILY_AWAY_MINUTES)
+        bar_length = 10
+        filled_bars = int(progress * bar_length)
+        progress_bar = "█" * filled_bars + "░" * (bar_length - filled_bars)
+
+        embed.add_field(
+            name="Daily Usage",
+            value=f"`{progress_bar}` {int(progress * 100)}%",
+            inline=False,
+        )
+
+        return embed
+
+    @staticmethod
+    async def manual_away_message_embed(ctx, user, minutes):
+        embed = discord.Embed(
+            title="✅ Manual Away Status",
+            description=f"{user.mention} has been **manually marked as away**",
+            color=discord.Color.yellow(),
+        )
+
+        # Away duration
+        embed.add_field(name="Duration", value=f"**{minutes}** minutes", inline=False)
+
+        # Optional: Add footer with admin info
+        embed.set_footer(text=f"Set by {ctx.author.name}")
+
+        return embed
+
+    @staticmethod
+    async def status_cleared_message_embed(user):
+        embed = discord.Embed(
+            title="Status Cleared",
+            description=f"✅ {user.mention}'s away status has been cleared.",
+            color=discord.Color.green(),
+        )
+        return embed

@@ -43,6 +43,7 @@ class MessageHandler:
         expected_minutes,
         late_minutes,
         accumulated_percentage,
+        channel,
     ):
         embed = EmbedHandler.return_late_embed(
             message,
@@ -51,7 +52,7 @@ class MessageHandler:
             late_minutes,
             accumulated_percentage,
         )
-        await message.channel.send(embed=embed)
+        await channel.send(embed=embed)
 
     @staticmethod
     async def daily_over_limit(message, daily_over_limit, daily_fee):

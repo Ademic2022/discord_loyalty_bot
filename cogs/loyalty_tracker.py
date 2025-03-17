@@ -394,7 +394,6 @@ class LoyaltyTracker(commands.Cog):
                 channel,
             )
         elif late_minutes > 0:
-            print("return_late")
             await MessageHandler.return_late(
                 message,
                 actual_minutes,

@@ -8,7 +8,7 @@ class EmbedHandler:
         embed = discord.Embed(
             title="👋 Away Status",
             description=f"{message.author.mention} is now marked as away",
-            color=0x3498DB,  # Blue color
+            color=discord.Color.blue(),
         )
 
         # Add field with time information
@@ -33,7 +33,7 @@ class EmbedHandler:
         embed = discord.Embed(
             title="✅ On-Time Return",
             description=f"{message.author.mention} has returned after {actual_minutes} minutes",
-            color=0x4CAF50,  # Green color
+            color=discord.Color.green(),
         )
 
         # Add a congratulatory message
@@ -58,8 +58,8 @@ class EmbedHandler:
     ):
         embed = discord.Embed(
             title="⏰ Attendance Update",
-            description=f"{message.author.mention} has returned after {actual_minutes} minutes",
-            color=0xFF5733,  # Orange-red color
+            description=f"{message.author.mention} you returned after {actual_minutes} minutes",
+            color=discord.Color.orange(),  # Orange-red color
         )
 
         # Add fields with relevant information
@@ -115,7 +115,7 @@ class EmbedHandler:
         embed = discord.Embed(
             title="⏰ Late Return + Daily Limit Exceeded",
             description=f"{message.author.mention} has returned after {actual_minutes} minutes",
-            color=0xE53935,  # Deeper red color for double penalty
+            color=discord.Color.dark_red(),  # Deeper red color for double penalty
         )
 
         # Late return information
@@ -153,7 +153,7 @@ class EmbedHandler:
         embed = discord.Embed(
             title="⏳ Already Away",
             description=f"{message.author.mention} is currently on a break",
-            color=0x3498DB,  # Blue color
+            color=discord.Color.blue(),  # Blue color
         )
 
         # Add instruction field
@@ -203,7 +203,7 @@ class EmbedHandler:
         embed = discord.Embed(
             title="⚠️ Daily Away Time Limit Reached",
             description=f"{message.author.mention} has reached their daily away time limit",
-            color=0xFF0000,  # Red color for more serious warning
+            color=discord.Color.red(),  # Red color for more serious warning
         )
 
         # Add fields with the important information

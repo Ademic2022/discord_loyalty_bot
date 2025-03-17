@@ -177,7 +177,7 @@ class ReportGenerator(FPDF):
         report += "-----------------|------------------|------------------|--------\n"
         for record in daily_records:
             name, total, over_limit, fee = record
-            report += f"{name:<16} | {total:^16} | {over_limit:^16} | {fee:<7}\n"
+            report += f"{name:<16} | {total:^16} | {over_limit:^16} | {round(fee, 4):<7}\n"
 
         report += "```\n**Individual Away Sessions**\n```\n"
         report += "Name             | Start      | End        | Expected  | Actual    | Fees(%)    \n"
@@ -185,7 +185,7 @@ class ReportGenerator(FPDF):
 
         for record in session_records:
             name, start, end, expected, actual, fee = record
-            report += f"{name:<16} | {start:<10} | {end:<10} | {expected:^9} | {actual:^9} | {fee:<7}\n"
+            report += f"{name:<16} | {start:<10} | {end:<10} | {expected:^9} | {actual:^9} | {round(fee, 4):<7}\n"
         report += "```"
         return report
 
@@ -195,7 +195,7 @@ class ReportGenerator(FPDF):
         report = f"📊 **Your Away Time Report - {date}**\n"
         report += "```\nTotal minutes away:         {}\n".format(total)
         report += "Over limit minutes:         {}\n".format(over_limit)
-        report += "Fee percentage:             {}%\n".format(fee)
+        report += "Fee percentage:             {}%\n".format(round(fee, 4))
         report += "```\n"
 
         if session_records:
@@ -204,6 +204,6 @@ class ReportGenerator(FPDF):
             report += "------------|-------------|------------|------------|--------\n"
             for record in session_records:
                 start, end, expected, actual, fee = record
-                report += f"{start:<11} | {end:<11} | {expected:^10} | {actual:^10} | {fee:<7}\n"
+                report += f"{start:<11} | {end:<11} | {expected:^10} | {actual:^10} | {round(fee, 4):<7}\n"
             report += "```"
         return report

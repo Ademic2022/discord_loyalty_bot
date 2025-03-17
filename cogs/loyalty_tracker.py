@@ -1,8 +1,8 @@
 import re
+import logging
 import discord
 from discord.ext import commands
 from datetime import datetime
-import logging
 from cogs.embed import EmbedHandler
 from cogs.messages import MessageHandler
 from config import Config
@@ -130,6 +130,8 @@ class LoyaltyTracker(commands.Cog):
         try:
             if is_admin:
                 daily_records, session_records = self.db._fetch_away_data(date)
+                print("daily_records", daily_records)
+                print("session_records", session_records)
 
                 if not daily_records:
                     await ctx.send(f"No away time records found for {date}")

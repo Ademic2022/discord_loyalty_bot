@@ -236,6 +236,14 @@ class DatabaseManager:
             )
             session_records = cursor.fetchall()
 
+            # Calculate accumulated fee from session records
+            accumulated_fee = sum(
+                record[4] for record in session_records
+            )  # record[4] is fee_amount
+
+            # Add accumulated fee to the user's daily record
+            user_record = (*user_record[:3], accumulated_fee)
+
             return user_record, session_records
         else:
             cursor.execute(
@@ -260,4 +268,24 @@ class DatabaseManager:
             )
             session_records = cursor.fetchall()
 
-            return daily_records, session_records
+            # Create a dictionary to accumulate fees for each user
+            fee_totals = {}
+
+            for session in session_records:
+                user_name = session[0]  # record[0] is user_name
+                fee_amount = session[5]  # record[5] is fee_amount
+
+                if user_name not in fee_totals:
+                    fee_totals[user_name] = 0.0
+                fee_totals[user_name] += fee_amount
+
+            # Update the daily records with accumulated fee amounts
+            updated_daily_records = []
+
+            for record in daily_records:
+                user_name = record[0]
+                accumulated_fee = fee_totals.get(user_name, 0.0)
+                updated_daily_record = (*record[:3], accumulated_fee)
+                updated_daily_records.append(updated_daily_record)
+
+            return updated_daily_records, session_records

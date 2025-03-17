@@ -303,7 +303,7 @@ class EmbedHandler:
         return embed
 
     @staticmethod
-    async def manual_away_message_embed(ctx, user, minutes):
+    def manual_away_message_embed(ctx, user, minutes):
         embed = discord.Embed(
             title="✅ Manual Away Status",
             description=f"{user.mention} has been **manually marked as away**",
@@ -319,7 +319,7 @@ class EmbedHandler:
         return embed
 
     @staticmethod
-    async def status_cleared_message_embed(user):
+    def status_cleared_message_embed(user):
         embed = discord.Embed(
             title="Status Cleared",
             description=f"✅ {user.mention}'s away status has been cleared.",

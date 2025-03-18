@@ -7,7 +7,7 @@ from utils.commands import MyCommands
 from utils.db_manager import DatabaseManager
 from utils.logger import setup_logger
 from cogs.loyalty_tracker import LoyaltyTracker
-from settings import ServerSettings
+from utils.on_boarding import OnBoarding
 
 # Initialize logging
 setup_logger()
@@ -45,7 +45,7 @@ async def on_ready():
         logger.error(f"Failed to load LoyaltyTracker cog: {e}")
 
     try:
-        await bot.add_cog(ServerSettings(bot))
+        await bot.add_cog(OnBoarding(bot))
         logger.info("Server settings cog loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load ServerSettings cog: {e}")

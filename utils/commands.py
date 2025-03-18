@@ -43,40 +43,26 @@ class MyCommands:
                 required=True,
             )
 
-            # fee_percentage = discord.ui.TextInput(
-            #     label="Fee Percentage per Minute",
-            #     placeholder="Enter a value like 0.0007",
-            #     default="0.0007",
-            #     required=True,
-            # )
+            fee_percentage = discord.ui.TextInput(
+                label="Fee Percentage per Minute",
+                placeholder="Enter a value like 0.0007",
+                default="0.0007",
+                required=True,
+            )
 
-            # max_single_away = discord.ui.TextInput(
-            #     label="Max Single Away Minutes",
-            #     placeholder="Enter a value like 40",
-            #     default="40",
-            #     required=False,
-            # )
+            max_single_away = discord.ui.TextInput(
+                label="Max Single Away Minutes",
+                placeholder="Enter a value like 40",
+                default="40",
+                required=False,
+            )
 
-            # max_daily_away = discord.ui.TextInput(
-            #     label="Max Daily Away Minutes",
-            #     placeholder="Enter a value like 90",
-            #     default="90",
-            #     required=False,
-            # )
-
-            # work_start_time = discord.ui.TextInput(
-            #     label="Work Start Time (24-hour format, HH:MM)",
-            #     placeholder="Enter a value like 09:00",
-            #     default="09:00",
-            #     required=False,
-            # )
-
-            # work_end_time = discord.ui.TextInput(
-            #     label="Work End Time (24-hour format, HH:MM)",
-            #     placeholder="Enter a value like 17:00",
-            #     default="17:00",
-            #     required=False,
-            # )
+            max_daily_away = discord.ui.TextInput(
+                label="Max Daily Away Minutes",
+                placeholder="Enter a value like 90",
+                default="90",
+                required=False,
+            )
 
             async def on_submit(self, modal_interaction: discord.Interaction):
                 try:
@@ -111,10 +97,44 @@ class MyCommands:
                         )
                         return
 
+                    # Validate and update fee percentage
+                    try:
+                        fee_value = float(self.fee_percentage.value)
+                        db.update_server_setting(
+                            guild.id, "fee_percentage_per_minute", fee_value
+                        )
+                    except ValueError:
+                        await modal_interaction.response.send_message(
+                            "Invalid fee percentage value. Using default value.",
+                            ephemeral=True,
+                        )
+                        return
+
+                    # Validate and update max single away time
+                    if self.max_single_away.value:
+                        try:
+                            max_single = int(self.max_single_away.value)
+                            db.update_server_setting(
+                                guild.id, "max_single_away_minutes", max_single
+                            )
+                        except ValueError:
+                            pass  # Use default if invalid
+
+                    # Validate and update max daily away time
+                    if self.max_daily_away.value:
+                        try:
+                            max_daily = int(self.max_daily_away.value)
+                            db.update_server_setting(
+                                guild.id, "max_daily_away_minutes", max_daily
+                            )
+                        except ValueError:
+                            pass  # Use default if invalid
+
                     await modal_interaction.response.send_message(
-                        f"✅ Initial settings saved!\n"
+                        f"# ✅ Initial settings saved!\n"
                         f"• Prefix: `{self.prefix.value}`\n"
-                        f"• Grace Period: {grace_minutes} minutes\n\n"
+                        f"• Grace Period: {grace_minutes} minutes\n"
+                        f"• Fee Percentage: {self.fee_percentage.value}\n\n"
                         f"Now, please select an announcement channel using the dropdown below.",
                         view=ChannelSelectView(guild, modal_interaction.user),
                         ephemeral=True,
@@ -125,12 +145,63 @@ class MyCommands:
                         f"An error occurred during setup: {str(e)}", ephemeral=True
                     )
 
+        # Create work hours modal
+        class WorkHoursModal(discord.ui.Modal, title="Set Work Hours"):
+            work_start_time = discord.ui.TextInput(
+                label="Work Start Time (24-hour format, HH:MM)",
+                placeholder="Enter a value like 09:00",
+                default="09:00",
+                required=False,
+            )
+
+            work_end_time = discord.ui.TextInput(
+                label="Work End Time (24-hour format, HH:MM)",
+                placeholder="Enter a value like 17:00",
+                default="17:00",
+                required=False,
+            )
+
+            async def on_submit(self, modal_interaction: discord.Interaction):
+                try:
+                    # Import here to avoid circular import issues
+                    from utils.db_manager import DatabaseManager
+
+                    db = DatabaseManager()
+                    guild = modal_interaction.guild
+
+                    # Update work hours
+                    db.update_server_setting(
+                        guild.id, "work_start_hour", self.work_start_time.value
+                    )
+                    db.update_server_setting(
+                        guild.id, "work_end_hour", self.work_end_time.value
+                    )
+
+                    await modal_interaction.response.send_message(
+                        f"# ✅ Work hours updated!\n"
+                        f"• Start Time: {self.work_start_time.value}\n"
+                        f"• End Time: {self.work_end_time.value}",
+                        ephemeral=True,
+                    )
+                except Exception as e:
+                    logger.error(f"Error in work hours modal submission: {e}")
+                    await modal_interaction.response.send_message(
+                        f"An error occurred: {str(e)}", ephemeral=True
+                    )
+
         # Create channel selection view
         class ChannelSelectView(discord.ui.View):
             def __init__(self, guild, user):
                 super().__init__(timeout=300)  # 5 minute timeout
                 self.guild = guild
                 self.user = user
+                self.add_item(
+                    discord.ui.Button(
+                        label="Set Work Hours",
+                        style=discord.ButtonStyle.blurple,
+                        custom_id="work_hours",
+                    )
+                )
 
             @discord.ui.select(
                 cls=discord.ui.ChannelSelect,
@@ -183,13 +254,46 @@ class MyCommands:
                         # Try to send to the selected announcement channel
                         await selected_channel.send(embed=embed)
 
+            async def interaction_check(self, interaction: discord.Interaction) -> bool:
+                if interaction.data.get("custom_id") == "work_hours":
+                    await interaction.response.send_modal(WorkHoursModal())
+                    return False
+                return True
+
         @self.bot.tree.command(
-            name="setup", description="Walk through first time bot setup"
+            name="setup", description="# Walk through first time bot setup"
         )
         @app_commands.checks.has_permissions(administrator=True)
         async def setup(interaction: discord.Interaction):
-            # Show the setup modal
-            await interaction.response.send_modal(SetupModal())
+            class ConfirmationView(discord.ui.View):
+                def __init__(self):
+                    super().__init__(timeout=60)  # 1 minute timeout
+
+                @discord.ui.button(label="Continue", style=discord.ButtonStyle.primary)
+                async def continue_button(
+                    self,
+                    button_interaction: discord.Interaction,
+                    button: discord.ui.Button,
+                ):
+                    # Show the setup modal when Continue is clicked
+                    await button_interaction.response.send_modal(SetupModal())
+
+                @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+                async def cancel_button(
+                    self,
+                    button_interaction: discord.Interaction,
+                    button: discord.ui.Button,
+                ):
+                    await button_interaction.response.edit_message(
+                        content="Setup cancelled.", view=None, embed=None
+                    )
+
+            # Send the confirmation message with the view
+            await interaction.response.send_message(
+                "# 👋 Welcome to the setup walkthrough!\n\n⚠️ This will **clear** all current configuration settings for the bot. Are you sure you want to continue?",
+                view=ConfirmationView(),
+                ephemeral=True,
+            )
 
         # Register a command to view and update settings
         @self.bot.tree.command(
@@ -325,6 +429,130 @@ class MyCommands:
                                 )
 
                     await button_interaction.response.send_modal(GraceModal())
+
+                @discord.ui.button(
+                    label="Edit Fee Settings", style=discord.ButtonStyle.primary
+                )
+                async def edit_fees(
+                    self,
+                    button_interaction: discord.Interaction,
+                    button: discord.ui.Button,
+                ):
+                    # Create a modal for editing fee settings
+                    class FeeSettingsModal(discord.ui.Modal, title="Edit Fee Settings"):
+                        fee_percentage = discord.ui.TextInput(
+                            label="Fee Percentage per Minute",
+                            placeholder="Enter a value like 0.0007",
+                            default=str(settings.get("fee_percentage", "0.0007")),
+                            required=True,
+                        )
+
+                        max_single_away = discord.ui.TextInput(
+                            label="Max Single Away Minutes",
+                            placeholder="Enter a value like 40",
+                            default=str(settings.get("max_single_away", "40")),
+                            required=False,
+                        )
+
+                        max_daily_away = discord.ui.TextInput(
+                            label="Max Daily Away Minutes",
+                            placeholder="Enter a value like 90",
+                            default=str(settings.get("max_daily_away", "90")),
+                            required=False,
+                        )
+
+                        async def on_submit(
+                            self, modal_interaction: discord.Interaction
+                        ):
+                            try:
+                                # Update fee percentage
+                                fee_value = float(self.fee_percentage.value)
+                                db.update_server_setting(
+                                    interaction.guild.id,
+                                    "fee_percentage_per_minute",
+                                    fee_value,
+                                )
+
+                                # Update max single away time if provided
+                                if self.max_single_away.value:
+                                    max_single = int(self.max_single_away.value)
+                                    db.update_server_setting(
+                                        interaction.guild.id,
+                                        "max_single_away_minutes",
+                                        max_single,
+                                    )
+
+                                # Update max daily away time if provided
+                                if self.max_daily_away.value:
+                                    max_daily = int(self.max_daily_away.value)
+                                    db.update_server_setting(
+                                        interaction.guild.id,
+                                        "max_daily_away_minutes",
+                                        max_daily,
+                                    )
+
+                                await modal_interaction.response.send_message(
+                                    f"Fee settings updated:\n"
+                                    f"• Fee Percentage: {fee_value}\n"
+                                    f"• Max Single Away: {self.max_single_away.value or 'default'} minutes\n"
+                                    f"• Max Daily Away: {self.max_daily_away.value or 'default'} minutes",
+                                    ephemeral=True,
+                                )
+                            except ValueError:
+                                await modal_interaction.response.send_message(
+                                    "Invalid values provided. Please enter numbers only.",
+                                    ephemeral=True,
+                                )
+
+                    await button_interaction.response.send_modal(FeeSettingsModal())
+
+                @discord.ui.button(
+                    label="Edit Work Hours", style=discord.ButtonStyle.primary
+                )
+                async def edit_work_hours(
+                    self,
+                    button_interaction: discord.Interaction,
+                    button: discord.ui.Button,
+                ):
+                    # Create a modal for editing work hours
+                    class WorkHoursModal(discord.ui.Modal, title="Edit Work Hours"):
+                        work_start_time = discord.ui.TextInput(
+                            label="Work Start Time (24-hour format, HH:MM)",
+                            placeholder="Enter a value like 09:00",
+                            default=str(settings.get("work_start_time", "09:00")),
+                            required=False,
+                        )
+
+                        work_end_time = discord.ui.TextInput(
+                            label="Work End Time (24-hour format, HH:MM)",
+                            placeholder="Enter a value like 17:00",
+                            default=str(settings.get("work_end_time", "17:00")),
+                            required=False,
+                        )
+
+                        async def on_submit(
+                            self, modal_interaction: discord.Interaction
+                        ):
+                            # Update work hours
+                            db.update_server_setting(
+                                interaction.guild.id,
+                                "work_start_time",
+                                self.work_start_time.value,
+                            )
+                            db.update_server_setting(
+                                interaction.guild.id,
+                                "work_end_time",
+                                self.work_end_time.value,
+                            )
+
+                            await modal_interaction.response.send_message(
+                                f"Work hours updated:\n"
+                                f"• Start Time: {self.work_start_time.value}\n"
+                                f"• End Time: {self.work_end_time.value}",
+                                ephemeral=True,
+                            )
+
+                    await button_interaction.response.send_modal(WorkHoursModal())
 
             await interaction.response.send_message(
                 embed=embed, view=SettingsView(), ephemeral=True

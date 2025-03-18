@@ -3,9 +3,11 @@ import asyncio
 import discord
 from discord.ext import commands
 from config import Config
+from utils.commands import MyCommands
 from utils.db_manager import DatabaseManager
 from utils.logger import setup_logger
 from cogs.loyalty_tracker import LoyaltyTracker
+from settings import ServerSettings
 
 # Initialize logging
 setup_logger()
@@ -29,9 +31,24 @@ async def on_ready():
     db = DatabaseManager()
     db.initialize()
 
-    # Load cogs
-    await bot.add_cog(LoyaltyTracker(bot))
-    logger.info("Loyalty tracker cog loaded")
+    try:
+        # Initialize commands
+        commands = MyCommands(bot)
+
+        # Sync commands with Discord
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s)")
+
+        await bot.add_cog(LoyaltyTracker(bot))
+        logger.info("Loyalty tracker cog loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load LoyaltyTracker cog: {e}")
+
+    try:
+        await bot.add_cog(ServerSettings(bot))
+        logger.info("Server settings cog loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load ServerSettings cog: {e}")
 
 
 async def main():

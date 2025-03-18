@@ -20,6 +20,20 @@ class DatabaseManager:
             conn = self.get_connection()
             cursor = conn.cursor()
 
+            cursor.execute(
+                """CREATE TABLE IF NOT EXISTS server_settings (
+                guild_id INTEGER PRIMARY KEY,
+                command_prefix TEXT DEFAULT '!',
+                channel_id INTEGER,
+                grace_period_minutes INTEGER DEFAULT 1,
+                fee_percentage_per_minute REAL DEFAULT 0.0007,
+                max_single_away_minutes INTEGER DEFAULT 40,
+                max_daily_away_minutes INTEGER DEFAULT 90,
+                work_start_hour INTEGER DEFAULT 9,
+                work_end_hour INTEGER DEFAULT 17
+            )"""
+            )
+
             # Table to track user away time
             cursor.execute(
                 """
@@ -66,6 +80,136 @@ class DatabaseManager:
         except Exception as e:
             self.logger.error(f"Error connecting to database: {e}")
             return None
+
+    def save_guild_config(self, guild_id, config_data):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """INSERT OR REPLACE INTO guild_settings 
+                        (guild_id, command_prefix, log_path, channel_id, 
+                        grace_period_minutes, fee_percentage_per_minute, 
+                        max_single_away_minutes, max_daily_away_minutes,
+                        work_start_hour, work_start_minute, 
+                        work_end_hour, work_end_minute)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                guild_id,
+                config_data.get("command_prefix", "!"),
+                config_data.get("log_path", "logs"),
+                config_data.get("channel_id"),
+                config_data.get("grace_period_minutes", 1),
+                config_data.get("fee_percentage_per_minute", 0.0007),
+                config_data.get("max_single_away_minutes", 40),
+                config_data.get("max_daily_away_minutes", 90),
+                config_data["work_start_time"].hour,
+                config_data["work_start_time"].minute,
+                config_data["work_end_time"].hour,
+                config_data["work_end_time"].minute,
+            ),
+        )
+        conn.commit()
+
+    def get_server_settings(self, guild_id, conn=None):
+        """Get settings for a specific server, or create with defaults if not exists"""
+        connection = conn or sqlite3.connect(self.db_path)
+        cursor = connection.cursor()
+
+        try:
+            # Try to fetch the server settings
+            cursor.execute(
+                "SELECT * FROM server_settings WHERE guild_id = ?",
+                (guild_id,),
+            )
+            server = cursor.fetchone()
+
+            if not server:
+                # Ensure Config.CHANNEL_ID is valid, else set to None
+                channel_id = (
+                    Config.CHANNEL_ID if hasattr(Config, "CHANNEL_ID") else None
+                )
+
+                work_start_time = Config.WORK_START_TIME.strftime("%H:%M:%S")
+                work_end_time = Config.WORK_END_TIME.strftime("%H:%M:%S")
+
+                # Insert default settings for the server
+                cursor.execute(
+                    """
+                    INSERT INTO server_settings (
+                        guild_id, 
+                        command_prefix, 
+                        channel_id, 
+                        grace_period_minutes, 
+                        fee_percentage_per_minute, 
+                        max_single_away_minutes, 
+                        max_daily_away_minutes, 
+                        work_start_hour, 
+                        work_end_hour
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        guild_id,
+                        Config.PREFIX,
+                        channel_id,
+                        Config.GRACE_PERIOD_MINUTES,
+                        Config.FEE_PERCENTAGE_PER_MINUTE,
+                        Config.MAX_SINGLE_AWAY_MINUTES,
+                        Config.MAX_DAILY_AWAY_MINUTES,
+                        work_start_time,
+                        work_end_time,
+                    ),
+                )
+                connection.commit()
+                # Fetch the newly created settings
+                cursor.execute(
+                    "SELECT * FROM server_settings WHERE guild_id = ?",
+                    (guild_id,),
+                )
+                server = cursor.fetchone()
+
+            # Convert to dictionary
+            columns = [description[0] for description in cursor.description]
+            server_dict = dict(zip(columns, server))
+
+        except Exception as e:
+            print(f"Error while fetching or inserting server settings: {e}")
+            server_dict = None
+
+        finally:
+            if not conn:
+                connection.close()
+        return server_dict
+
+    def update_server_setting(self, guild_id, setting, value):
+        """Update a specific setting for a server"""
+        print(f"Updating setting: {setting} to {value}")
+        self.conn = sqlite3.connect(self.db_path)
+        cursor = self.conn.cursor()
+
+        try:
+            # Ensure the server exists in our database, reuse the same connection
+            self.get_server_settings(guild_id, conn=self.conn)
+
+            # Update the setting
+            cursor.execute(
+                f"""
+                UPDATE server_settings SET {setting} = ? WHERE guild_id = ?
+                """,
+                (value, guild_id),
+            )
+
+            self.conn.commit()
+
+        except Exception as e:
+            print(f"Error updating server setting: {e}")
+            return False
+
+        finally:
+            if self.conn:
+                self.conn.close()
+                print("Connection closed after updating")
+
+        return True
 
     def is_work_hours(self):
         """Check if current time is within work hours (9 AM - 5 PM on weekdays)"""

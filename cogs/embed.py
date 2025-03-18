@@ -326,3 +326,136 @@ class EmbedHandler:
             color=discord.Color.green(),
         )
         return embed
+
+    @staticmethod
+    def server_info_embed(guild):
+        embed = discord.Embed(
+            title=f"{guild.name} Info",
+            description="Server information and statistics",
+            color=discord.Color.blue(),
+        )
+
+        embed.add_field(name="Owner", value=guild.owner.mention, inline=True)
+        embed.add_field(
+            name="Created On",
+            value=guild.created_at.strftime("%B %d, %Y"),
+            inline=True,
+        )
+        embed.add_field(name="Member Count", value=str(guild.member_count), inline=True)
+        embed.add_field(name="Channels", value=str(len(guild.channels)), inline=True)
+        embed.add_field(name="Roles", value=str(len(guild.roles)), inline=True)
+
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+
+        return embed
+
+    @staticmethod
+    def user_info_embed(target_user):
+        embed = discord.Embed(
+            title=f"{target_user.display_name}'s Info", color=target_user.color
+        )
+
+        embed.add_field(name="Username", value=str(target_user), inline=True)
+        embed.add_field(name="ID", value=str(target_user.id), inline=True)
+        embed.add_field(
+            name="Joined Server",
+            value=target_user.joined_at.strftime("%B %d, %Y"),
+            inline=True,
+        )
+        embed.add_field(
+            name="Account Created",
+            value=target_user.created_at.strftime("%B %d, %Y"),
+            inline=True,
+        )
+        embed.add_field(
+            name="Top Role", value=target_user.top_role.mention, inline=True
+        )
+
+        if target_user.avatar:
+            embed.set_thumbnail(url=target_user.avatar.url)
+
+        return embed
+
+    @staticmethod
+    def settings_embed(settings, interaction):
+        from datetime import datetime
+
+        embed = discord.Embed(
+            title="Server Settings",
+            color=discord.Color.blue(),
+            timestamp=datetime.now(),
+        )
+
+        embed.add_field(
+            name="Prefix", value=f"`{settings['command_prefix']}`", inline=True
+        )
+
+        channel = interaction.guild.get_channel(
+            settings.get("announcement_channel_id") or settings.get("channel_id")
+        )
+        channel_value = channel.mention if channel else "Not set"
+        embed.add_field(name="Announcement Channel", value=channel_value, inline=True)
+
+        embed.add_field(
+            name="Grace Period",
+            value=f"{settings['grace_period_minutes']} minutes",
+            inline=True,
+        )
+
+        # Add other fields if they exist in the settings
+        if "fee_percentage_per_minute" in settings:
+            embed.add_field(
+                name="Fee Percentage",
+                value=f"{settings['fee_percentage_per_minute']*100:.4f}% per minute",
+                inline=True,
+            )
+
+        if "max_single_away_minutes" in settings:
+            embed.add_field(
+                name="Max Single Away",
+                value=f"{settings['max_single_away_minutes']} minutes",
+                inline=True,
+            )
+
+        if "max_daily_away_minutes" in settings:
+            embed.add_field(
+                name="Max Daily Away",
+                value=f"{settings['max_daily_away_minutes']} minutes",
+                inline=True,
+            )
+
+        if "work_start_hour" in settings and "work_end_hour" in settings:
+            embed.add_field(
+                name="Work Hours",
+                value=f"{settings['work_start_hour']} - {settings['work_end_hour']}",
+                inline=True,
+            )
+
+        return embed
+
+    @staticmethod
+    def bot_setup_complete_embed(settings, selected_channel):
+        embed = discord.Embed(
+            title="✅ Bot Setup Complete",
+            description="Your server has been configured with the following settings:",
+            color=discord.Color.green(),
+        )
+
+        embed.add_field(
+            name="Prefix", value=f"`{settings['command_prefix']}`", inline=True
+        )
+
+        embed.add_field(
+            name="Announcement Channel",
+            value=f"<#{selected_channel.id}>",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="Grace Period",
+            value=f"{settings['grace_period_minutes']} minutes",
+            inline=True,
+        )
+        
+        return embed

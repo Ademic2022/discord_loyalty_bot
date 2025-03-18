@@ -1,7 +1,6 @@
 import sqlite3
 import logging
 from datetime import datetime
-
 from config import Config
 
 

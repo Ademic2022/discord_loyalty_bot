@@ -11,7 +11,7 @@ from utils.report import ReportGenerator
 
 
 class LoyaltyTracker(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, my_commands):
         self.bot = bot
         self.db = DatabaseManager()
         self.logger = logging.getLogger("discord_bot")

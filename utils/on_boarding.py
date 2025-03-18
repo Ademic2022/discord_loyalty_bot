@@ -12,11 +12,11 @@ logger = logging.getLogger("bot.onboarding")
 
 
 class OnBoarding(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, my_commands):
         self.bot = bot
         self.db = DatabaseManager()
         logger.info("OnBoarding cog initialized")
-        # self.command = MyCommands(bot)
+        self.commands = my_commands
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
@@ -187,123 +187,23 @@ class OnBoarding(commands.Cog):
         try:
             if not interaction.type == discord.InteractionType.component:
                 return
-            
-            custom_id = interaction.data.get('custom_id')
 
-            logger.info(
-                f"Button pressed: {custom_id} by {interaction.user.name}"
-            )
+            custom_id = interaction.data.get("custom_id")
+
+            logger.info(f"Button pressed: {custom_id} by {interaction.user.name}")
 
             # Handle button clicks
-            if (
-                custom_id == "setup_button"
-                or custom_id == "setup_dm_button"
-            ):
-                # Only allow admins to use setup
-                if interaction.user.guild_permissions.administrator:
-                    # Acknowledge the interaction first
-                    await interaction.response.defer(ephemeral=True)
-
-                    # Call your setup command logic here
-                    await interaction.followup.send(
-                        "Starting setup wizard...", ephemeral=True
-                    )
-                    # self.command._register_setup_command()
-                    # You would typically call your actual setup command logic here
-                else:
-                    await interaction.response.send_message(
-                        "You need administrator permissions to use this command.",
-                        ephemeral=True,
-                    )
-
+            if custom_id == "setup_button" or custom_id == "setup_dm_button":
+                await self.commands.setup(interaction)
             elif custom_id == "settings_button":
-                await interaction.response.defer(ephemeral=True)
-                await interaction.followup.send(
-                    "Opening settings menu...", ephemeral=True
-                )
-                # self.command._register_setup_command()
-
+                await self.commands.settings(interaction)
             elif custom_id == "serverinfo_button":
-                await interaction.response.defer(ephemeral=True)
-                # Get server info
-                guild = interaction.guild
-                embed = discord.Embed(
-                    title=f"{guild.name} Information", color=discord.Color.blue()
-                )
-                embed.add_field(name="Owner", value=guild.owner.mention, inline=True)
-                embed.add_field(
-                    name="Members", value=str(guild.member_count), inline=True
-                )
-                embed.add_field(
-                    name="Created On",
-                    value=guild.created_at.strftime("%Y-%m-%d"),
-                    inline=True,
-                )
-
-                await interaction.followup.send(embed=embed, ephemeral=True)
-
+                await self.commands.serverinfo(interaction)
             elif custom_id == "userinfo_button":
-                await interaction.response.defer(ephemeral=True)
-                # Get user info
-                user = interaction.user
-                embed = discord.Embed(
-                    title=f"{user.name} Information", color=discord.Color.blue()
-                )
-                embed.add_field(
-                    name="Joined Server",
-                    value=user.joined_at.strftime("%Y-%m-%d"),
-                    inline=True,
-                )
-                embed.add_field(
-                    name="Discord Member Since",
-                    value=user.created_at.strftime("%Y-%m-%d"),
-                    inline=True,
-                )
-                embed.add_field(
-                    name="Roles",
-                    value=", ".join([role.name for role in user.roles[1:]]) or "None",
-                    inline=False,
-                )
+                await self.commands.userinfo(interaction)
+            elif custom_id == "help_button" or custom_id == "help_dm_button":
+                await self.commands.help(interaction)
 
-                await interaction.followup.send(embed=embed, ephemeral=True)
-
-            elif (
-                custom_id == "help_button"
-                or custom_id == "help_dm_button"
-            ):
-                await interaction.response.defer(ephemeral=True)
-
-                help_embed = discord.Embed(
-                    title="Bot Help",
-                    description="Here's how to use the productivity monitoring bot:",
-                    color=discord.Color.green(),
-                )
-
-                help_embed.add_field(
-                    name="Setup",
-                    value="Configure the bot for your server. Admin only.",
-                    inline=False,
-                )
-
-                help_embed.add_field(
-                    name="Settings",
-                    value="Adjust monitoring parameters and notification settings.",
-                    inline=False,
-                )
-
-                help_embed.add_field(
-                    name="Server Info",
-                    value="View statistics about your server.",
-                    inline=False,
-                )
-
-                help_embed.add_field(
-                    name="User Info",
-                    value="View information about a specific user.",
-                    inline=False,
-                )
-
-                await interaction.followup.send(embed=help_embed, ephemeral=True)
         except Exception as e:
             logger.error(f"Error in on_interaction: {str(e)}")
             logger.error(traceback.format_exc())

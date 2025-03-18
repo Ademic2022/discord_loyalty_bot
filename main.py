@@ -22,6 +22,9 @@ intents.message_content = True
 # Initialize bot
 bot = commands.Bot(command_prefix=Config.PREFIX, intents=intents)
 
+# Initialize MyCommands
+my_commands = MyCommands(bot)
+
 
 # Load loyalty tracking cog
 @bot.event
@@ -32,23 +35,23 @@ async def on_ready():
     db.initialize()
 
     try:
-        # Initialize commands
-        commands = MyCommands(bot)
-
-        # Sync commands with Discord
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s)")
-
-        await bot.add_cog(LoyaltyTracker(bot))
+        await bot.add_cog(LoyaltyTracker(bot, my_commands))
         logger.info("Loyalty tracker cog loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load LoyaltyTracker cog: {e}")
 
     try:
-        await bot.add_cog(OnBoarding(bot))
+        await bot.add_cog(OnBoarding(bot, my_commands))
         logger.info("Server settings cog loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load ServerSettings cog: {e}")
+
+    # Sync commands with Discord
+    try:
+        synced = await bot.tree.sync()
+        logger.info(f"Synced {len(synced)} command(s)")
+    except Exception as e:
+        logger.error(f"Failed to sync commands: {e}")
 
 
 async def main():

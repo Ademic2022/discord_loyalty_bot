@@ -6,7 +6,7 @@ class EmbedHandler:
     @staticmethod
     def away_acknowledge_embed(message, minutes_away):
         embed = discord.Embed(
-            title="👋 Away Status",
+            title="# 👋 Away Status",
             description=f"{message.author.mention} is now marked as away",
             color=discord.Color.blue(),
         )
@@ -31,7 +31,7 @@ class EmbedHandler:
     @staticmethod
     def return_on_time_embed(message, actual_minutes):
         embed = discord.Embed(
-            title="✅ On-Time Return",
+            title="# ✅ On-Time Return",
             description=f"{message.author.mention} has returned after {actual_minutes} minutes",
             color=discord.Color.green(),
         )
@@ -57,7 +57,7 @@ class EmbedHandler:
         accumulated_percentage,
     ):
         embed = discord.Embed(
-            title="⏰ Attendance Update",
+            title="# ⏰ Attendance Update",
             description=f"{message.author.mention} you returned after {actual_minutes} minutes",
             color=discord.Color.orange(),  # Orange-red color
         )
@@ -83,7 +83,7 @@ class EmbedHandler:
     @staticmethod
     def daily_over_limit_embed(message, daily_over_limit, daily_fee):
         embed = discord.Embed(
-            title="⚠️ Daily Limit Exceeded",
+            title="# ⚠️ Daily Limit Exceeded",
             description=f"{message.author.mention} returned on time, but has exceeded their daily away allowance",
             color=0xFFC107,  # Amber/warning color
         )
@@ -113,7 +113,7 @@ class EmbedHandler:
         total_fee,
     ):
         embed = discord.Embed(
-            title="⏰ Late Return + Daily Limit Exceeded",
+            title="# ⏰ Late Return + Daily Limit Exceeded",
             description=f"{message.author.mention} has returned after {actual_minutes} minutes",
             color=discord.Color.dark_red(),  # Deeper red color for double penalty
         )
@@ -151,7 +151,7 @@ class EmbedHandler:
     @staticmethod
     def already_away_embed(message):
         embed = discord.Embed(
-            title="⏳ Already Away",
+            title="# ⏳ Already Away",
             description=f"{message.author.mention} is currently on a break",
             color=discord.Color.blue(),  # Blue color
         )
@@ -171,7 +171,7 @@ class EmbedHandler:
     @staticmethod
     def exceeds_single_away_embed(message, minutes_away):
         embed = discord.Embed(
-            title="⚠️ Time Away Limit Exceeded",
+            title="# ⚠️ Time Away Limit Exceeded",
             description=f"{message.author.mention} requested too much time away",
             color=0xFFD700,  # Gold/yellow warning color
         )
@@ -201,7 +201,7 @@ class EmbedHandler:
     @staticmethod
     def exceeded_daily_limit_embed(message):
         embed = discord.Embed(
-            title="⚠️ Daily Away Time Limit Reached",
+            title="# ⚠️ Daily Away Time Limit Reached",
             description=f"{message.author.mention} has reached their daily away time limit",
             color=discord.Color.red(),  # Red color for more serious warning
         )
@@ -235,7 +235,7 @@ class EmbedHandler:
         remaining_today,
     ):
         embed = discord.Embed(
-            title="🕒 Away Status Update",
+            title="# 🕒 Away Status Update",
             description=f"{ctx.author.mention} has been away for **{elapsed_minutes}** minutes in this session.",
             color=discord.Color.blue(),
         )
@@ -276,7 +276,7 @@ class EmbedHandler:
         ctx, total_today, MAX_DAILY_AWAY_MINUTES, remaining_today
     ):
         embed = discord.Embed(
-            title="✅ Status Check",
+            title="# ✅ Status Check",
             description=f"{ctx.author.mention} is currently **not marked as away**.",
             color=discord.Color.green(),
         )
@@ -305,7 +305,7 @@ class EmbedHandler:
     @staticmethod
     def manual_away_message_embed(ctx, user, minutes):
         embed = discord.Embed(
-            title="✅ Manual Away Status",
+            title="# ✅ Manual Away Status",
             description=f"{user.mention} has been **manually marked as away**",
             color=discord.Color.yellow(),
         )
@@ -321,7 +321,7 @@ class EmbedHandler:
     @staticmethod
     def status_cleared_message_embed(user):
         embed = discord.Embed(
-            title="Status Cleared",
+            title="# Status Cleared",
             description=f"✅ {user.mention}'s away status has been cleared.",
             color=discord.Color.green(),
         )
@@ -330,7 +330,7 @@ class EmbedHandler:
     @staticmethod
     def server_info_embed(guild):
         embed = discord.Embed(
-            title=f"{guild.name} Info",
+            title=f"# {guild.name} Info",
             description="Server information and statistics",
             color=discord.Color.blue(),
         )
@@ -353,7 +353,7 @@ class EmbedHandler:
     @staticmethod
     def user_info_embed(target_user):
         embed = discord.Embed(
-            title=f"{target_user.display_name}'s Info", color=target_user.color
+            title=f"# {target_user.display_name}'s Info", color=target_user.color
         )
 
         embed.add_field(name="Username", value=str(target_user), inline=True)
@@ -437,7 +437,7 @@ class EmbedHandler:
     @staticmethod
     def bot_setup_complete_embed(settings, selected_channel):
         embed = discord.Embed(
-            title="✅ Bot Setup Complete",
+            title="# ✅ Bot Setup Complete",
             description="Your server has been configured with the following settings:",
             color=discord.Color.green(),
         )
@@ -457,5 +457,5 @@ class EmbedHandler:
             value=f"{settings['grace_period_minutes']} minutes",
             inline=True,
         )
-        
+
         return embed

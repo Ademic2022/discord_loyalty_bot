@@ -459,3 +459,63 @@ class EmbedHandler:
         )
 
         return embed
+
+    @staticmethod
+    def welcome_embed():
+        embed = discord.Embed(
+            title="# 👋 Thanks for adding me to your server!",
+            description="I'm a productivity monitoring bot designed to help track and manage employee time.",
+            color=discord.Color.blue(),
+        )
+
+        embed.add_field(
+            name="📝 Getting Started",
+            value="Click the Setup button below to configure the bot for your server (Admin only).",
+            inline=False,
+        )
+
+        embed.add_field(
+            name="🔍 Available Actions",
+            value="Use the buttons below to access different features:",
+            inline=False,
+        )
+
+        embed.add_field(
+            name="💡 Need Help?",
+            value="Click the Help button for more information.",
+            inline=False,
+        )
+
+        embed.set_footer(text="Setup is required before the bot can start monitoring.")
+
+        return embed
+
+    @staticmethod
+    def help_embed():
+        """Handle the help command."""
+        embed = discord.Embed(
+            title="Bot Help",
+            description="Here's how to use the productivity monitoring bot:",
+            color=discord.Color.green(),
+        )
+        embed.add_field(
+            name="Setup",
+            value="Configure the bot for your server. Admin only.",
+            inline=False,
+        )
+        embed.add_field(
+            name="Settings",
+            value="Adjust monitoring parameters and notification settings.",
+            inline=False,
+        )
+        embed.add_field(
+            name="Server Info",
+            value="View statistics about your server.",
+            inline=False,
+        )
+        embed.add_field(
+            name="User Info",
+            value="View information about a specific user.",
+            inline=False,
+        )
+        return embed

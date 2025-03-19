@@ -1,5 +1,5 @@
 from discord.ext import commands
-from utils.commands import MyCommands
+from cogs.embed import EmbedHandler
 from utils.db_manager import DatabaseManager
 import discord
 from discord.ui import Button, View
@@ -19,7 +19,7 @@ class OnBoarding(commands.Cog):
         self.commands = my_commands
 
     @commands.Cog.listener()
-    async def on_guild_join(self, guild):
+    async def on_guild_join(self, guild: discord.Guild):
         try:
             logger.info(f"Bot joined guild: {guild.name} (ID: {guild.id})")
 
@@ -61,34 +61,7 @@ class OnBoarding(commands.Cog):
 
             if target_channel:
                 # Create an embed for the welcome message
-                embed = discord.Embed(
-                    title="👋 Thanks for adding me to your server!",
-                    description="I'm a productivity monitoring bot designed to help track and manage employee time.",
-                    color=discord.Color.blue(),
-                )
-
-                embed.add_field(
-                    name="📝 Getting Started",
-                    value="Click the Setup button below to configure the bot for your server (Admin only).",
-                    inline=False,
-                )
-
-                embed.add_field(
-                    name="🔍 Available Actions",
-                    value="Use the buttons below to access different features:",
-                    inline=False,
-                )
-
-                embed.add_field(
-                    name="💡 Need Help?",
-                    value="Click the Help button for more information.",
-                    inline=False,
-                )
-
-                embed.set_footer(
-                    text="Setup is required before the bot can start monitoring."
-                )
-
+                embed = EmbedHandler.welcome_embed()
                 # Create buttons for each command
                 setup_button = Button(
                     label="Setup",
@@ -189,9 +162,6 @@ class OnBoarding(commands.Cog):
                 return
 
             custom_id = interaction.data.get("custom_id")
-
-            logger.info(f"Button pressed: {custom_id} by {interaction.user.name}")
-
             # Handle button clicks
             if custom_id == "setup_button" or custom_id == "setup_dm_button":
                 await self.commands.setup(interaction)

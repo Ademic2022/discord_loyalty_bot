@@ -336,31 +336,7 @@ class MyCommands:
 
     async def help(self, interaction: discord.Interaction):
         """Handle the help command."""
-        help_embed = discord.Embed(
-            title="Bot Help",
-            description="Here's how to use the productivity monitoring bot:",
-            color=discord.Color.green(),
-        )
-        help_embed.add_field(
-            name="Setup",
-            value="Configure the bot for your server. Admin only.",
-            inline=False,
-        )
-        help_embed.add_field(
-            name="Settings",
-            value="Adjust monitoring parameters and notification settings.",
-            inline=False,
-        )
-        help_embed.add_field(
-            name="Server Info",
-            value="View statistics about your server.",
-            inline=False,
-        )
-        help_embed.add_field(
-            name="User Info",
-            value="View information about a specific user.",
-            inline=False,
-        )
+        help_embed = EmbedHandler.help_embed()
         await interaction.response.send_message(embed=help_embed, ephemeral=True)
 
     # Register a command to view and update settings

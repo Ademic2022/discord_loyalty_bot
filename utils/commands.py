@@ -192,6 +192,13 @@ class MyCommands:
                         custom_id="work_hours",
                     )
                 )
+                self.add_item(
+                    discord.ui.Button(
+                        label="Config Settings",
+                        style=discord.ButtonStyle.green,
+                        custom_id="config_settings",
+                    )
+                )
 
             @discord.ui.select(
                 cls=discord.ui.ChannelSelect,
@@ -244,6 +251,9 @@ class MyCommands:
             async def interaction_check(self, interaction: discord.Interaction) -> bool:
                 if interaction.data.get("custom_id") == "work_hours":
                     await interaction.response.send_modal(WorkHoursModal())
+                    return False
+                elif interaction.data.get("custom_id") == "config_settings":
+                    await interaction.response.send_modal(SetupModal())
                     return False
                 return True
 
@@ -299,8 +309,14 @@ class MyCommands:
                 button_interaction: discord.Interaction,
                 button: discord.ui.Button,
             ):
-                # Show the setup modal when Continue is clicked
-                await button_interaction.response.send_modal(SetupModal())
+                # Show the initial setup view when Continue is clicked
+                await button_interaction.response.send_message(
+                    "Please select an announcement channel and configure settings:",
+                    view=ChannelSelectView(
+                        button_interaction.guild, button_interaction.user
+                    ),
+                    ephemeral=True,
+                )
 
             @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
             async def cancel_button(
@@ -406,7 +422,7 @@ class MyCommands:
                         selected_channel = select.values[0]
                         db.update_server_setting(
                             interaction.guild.id,
-                            "announcement_channel_id",
+                            "channel_id",
                             selected_channel.id,
                         )
                         await select_interaction.response.send_message(

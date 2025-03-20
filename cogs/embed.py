@@ -111,6 +111,7 @@ class EmbedHandler:
         accumulated_percentage,
         daily_over_limit,
         total_fee,
+        grace_period,
     ):
         embed = discord.Embed(
             title="# ⏰ Late Return + Daily Limit Exceeded",
@@ -492,30 +493,85 @@ class EmbedHandler:
 
     @staticmethod
     def help_embed():
-        """Handle the help command."""
+        """Generate a detailed and user-friendly help embed."""
         embed = discord.Embed(
-            title="Bot Help",
-            description="Here's how to use the productivity monitoring bot:",
-            color=discord.Color.green(),
+            title="📘 Bot Help",
+            description="Welcome to the Productivity Monitoring Bot! Here's how to use it:",
+            color=discord.Color.blue(),
         )
+
+        # General Commands
         embed.add_field(
-            name="Setup",
-            value="Configure the bot for your server. Admin only.",
+            name="🛠️ **General Commands**",
+            value="Commands available to all users:",
             inline=False,
         )
         embed.add_field(
-            name="Settings",
-            value="Adjust monitoring parameters and notification settings.",
+            name="`!help`",
+            value="Displays this help message.",
+            inline=True,
+        )
+        embed.add_field(
+            name="`<Int> mins away`",
+            value="Mark yourself as away for a specified number of minutes.\nExample: `5 min away`",
+            inline=True,
+        )
+        embed.add_field(
+            name="`back`",
+            value="Mark yourself as returned from being away.\nExample: `back`",
+            inline=True,
+        )
+        embed.add_field(
+            name="`!status`",
+            value="Check your current away status and remaining time.\nExample: `!status`",
+            inline=True,
+        )
+        embed.add_field(
+            name="`!report <date>`",
+            value="Get a report of your away time for a specific date (YYYY-MM-DD).\nExample: `!report 2023-10-01`",
+            inline=True,
+        )
+
+        # Admin Commands
+        embed.add_field(
+            name="🔧 **Admin Commands**",
+            value="Commands available to server administrators:",
             inline=False,
         )
         embed.add_field(
-            name="Server Info",
-            value="View statistics about your server.",
-            inline=False,
+            name="`!setup`",
+            value="Configure the bot for your server.\nExample: `!setup`",
+            inline=True,
         )
         embed.add_field(
-            name="User Info",
-            value="View information about a specific user.",
+            name="`!settings`",
+            value="Adjust monitoring parameters and notification settings.\nExample: `!settings`",
+            inline=True,
+        )
+        embed.add_field(
+            name="`!setaway <user> <minutes>`",
+            value="Manually mark a user as away for a specified number of minutes.\nExample: `!setaway @User 30`",
+            inline=True,
+        )
+        embed.add_field(
+            name="`!clearaway <user>`",
+            value="Manually clear a user's away status.\nExample: `!clearaway @User`",
+            inline=True,
+        )
+        embed.add_field(
+            name="`!serverinfo`",
+            value="View statistics about your server.\nExample: `!serverinfo`",
+            inline=True,
+        )
+
+        # Additional Information
+        embed.add_field(
+            name="📝 **Additional Information**",
+            value="For more details, visit the [documentation](https://example.com/docs).",
             inline=False,
         )
+
+        # Footer
+        embed.set_footer(text="Need more help? Contact support@example.com.")
+
         return embed

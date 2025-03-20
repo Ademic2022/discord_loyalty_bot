@@ -20,50 +20,69 @@ class DatabaseManager:
             cursor = conn.cursor()
 
             cursor.execute(
-                """CREATE TABLE IF NOT EXISTS server_settings (
-                guild_id INTEGER PRIMARY KEY,
-                command_prefix TEXT DEFAULT '!',
-                channel_id INTEGER,
-                grace_period_minutes INTEGER DEFAULT 1,
-                fee_percentage_per_minute REAL DEFAULT 0.0007,
-                max_single_away_minutes INTEGER DEFAULT 40,
-                max_daily_away_minutes INTEGER DEFAULT 90,
-                work_start_hour INTEGER DEFAULT 9,
-                work_end_hour INTEGER DEFAULT 17
-            )"""
+                """
+                CREATE TABLE IF NOT EXISTS server_settings (
+                    guild_id INTEGER PRIMARY KEY,
+                    command_prefix TEXT DEFAULT '!',
+                    channel_id INTEGER,
+                    grace_period_minutes INTEGER DEFAULT 1,
+                    fee_percentage_per_minute REAL DEFAULT 0.0007,
+                    max_single_away_minutes INTEGER DEFAULT 40,
+                    max_daily_away_minutes INTEGER DEFAULT 90,
+                    work_start_hour INTEGER DEFAULT 9,
+                    work_end_hour INTEGER DEFAULT 17
+                )
+                """
             )
 
             # Table to track user away time
             cursor.execute(
                 """
-            CREATE TABLE IF NOT EXISTS away_time (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                user_name TEXT NOT NULL,
-                date TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time TEXT,
-                expected_minutes INTEGER NOT NULL,
-                actual_minutes INTEGER,
-                fee_amount REAL DEFAULT 0
-            )
-            """
+                CREATE TABLE IF NOT EXISTS away_time (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    user_name TEXT NOT NULL,
+                    guild_id INTEGER NOT NULL,
+                    date TEXT NOT NULL,
+                    start_time TEXT NOT NULL,
+                    end_time TEXT,
+                    expected_minutes INTEGER NOT NULL,
+                    actual_minutes INTEGER,
+                    fee_amount REAL DEFAULT 0
+                )
+                """
             )
 
             # Table to track daily totals
             cursor.execute(
                 """
-            CREATE TABLE IF NOT EXISTS away_daily (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                user_name TEXT NOT NULL,
-                date TEXT NOT NULL,
-                total_minutes INTEGER DEFAULT 0,
-                over_limit_minutes INTEGER DEFAULT 0,
-                fee_amount REAL DEFAULT 0,
-                UNIQUE(user_id, date)
+                CREATE TABLE IF NOT EXISTS away_daily (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    user_name TEXT NOT NULL,
+                    guild_id INTEGER NOT NULL,
+                    date TEXT NOT NULL,
+                    total_minutes INTEGER DEFAULT 0,
+                    over_limit_minutes INTEGER DEFAULT 0,
+                    fee_amount REAL DEFAULT 0,
+                    UNIQUE(user_id, date, guild_id)
+                );
+                """
             )
-            """
+
+            # Table to track active away sessions
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS active_away_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    user_name TEXT NOT NULL,
+                    guild_id INTEGER NOT NULL,
+                    start_time TEXT NOT NULL,
+                    expected_minutes INTEGER NOT NULL,
+                    UNIQUE(user_id, guild_id)
+                )
+                """
             )
 
             conn.commit()
@@ -85,29 +104,32 @@ class DatabaseManager:
         cursor = conn.cursor()
 
         cursor.execute(
-            """INSERT OR REPLACE INTO guild_settings 
-                        (guild_id, command_prefix, log_path, channel_id, 
+            """INSERT OR REPLACE INTO server_settings 
+                        (guild_id, command_prefix, channel_id, 
                         grace_period_minutes, fee_percentage_per_minute, 
                         max_single_away_minutes, max_daily_away_minutes,
-                        work_start_hour, work_start_minute, 
-                        work_end_hour, work_end_minute)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        work_start_hour, work_end_hour)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 guild_id,
-                config_data.get("command_prefix", "!"),
-                config_data.get("log_path", "logs"),
-                config_data.get("channel_id"),
-                config_data.get("grace_period_minutes", 1),
-                config_data.get("fee_percentage_per_minute", 0.0007),
-                config_data.get("max_single_away_minutes", 40),
-                config_data.get("max_daily_away_minutes", 90),
-                config_data["work_start_time"].hour,
-                config_data["work_start_time"].minute,
-                config_data["work_end_time"].hour,
-                config_data["work_end_time"].minute,
+                config_data.get("command_prefix", Config.PREFIX),
+                config_data.get("channel_id", Config.CHANNEL_ID),
+                config_data.get("grace_period_minutes", Config.GRACE_PERIOD_MINUTES),
+                config_data.get(
+                    "fee_percentage_per_minute", Config.FEE_PERCENTAGE_PER_MINUTE
+                ),
+                config_data.get(
+                    "max_single_away_minutes", Config.MAX_SINGLE_AWAY_MINUTES
+                ),
+                config_data.get(
+                    "max_daily_away_minutes", Config.MAX_DAILY_AWAY_MINUTES
+                ),
+                config_data.get("work_start_hour", 9),
+                config_data.get("work_end_hour", 17),
             ),
         )
         conn.commit()
+        conn.close()
 
     def get_server_settings(self, guild_id, conn=None):
         """Get settings for a specific server, or create with defaults if not exists"""
@@ -123,48 +145,16 @@ class DatabaseManager:
             server = cursor.fetchone()
 
             if not server:
-                # Ensure Config.CHANNEL_ID is valid, else set to None
-                channel_id = (
-                    Config.CHANNEL_ID if hasattr(Config, "CHANNEL_ID") else None
-                )
-
-                work_start_time = Config.WORK_START_TIME.strftime("%H:%M:%S")
-                work_end_time = Config.WORK_END_TIME.strftime("%H:%M:%S")
-
-                # Insert default settings for the server
-                cursor.execute(
-                    """
-                    INSERT INTO server_settings (
-                        guild_id, 
-                        command_prefix, 
-                        channel_id, 
-                        grace_period_minutes, 
-                        fee_percentage_per_minute, 
-                        max_single_away_minutes, 
-                        max_daily_away_minutes, 
-                        work_start_hour, 
-                        work_end_hour
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        guild_id,
-                        Config.PREFIX,
-                        channel_id,
-                        Config.GRACE_PERIOD_MINUTES,
-                        Config.FEE_PERCENTAGE_PER_MINUTE,
-                        Config.MAX_SINGLE_AWAY_MINUTES,
-                        Config.MAX_DAILY_AWAY_MINUTES,
-                        work_start_time,
-                        work_end_time,
-                    ),
-                )
-                connection.commit()
-                # Fetch the newly created settings
-                cursor.execute(
-                    "SELECT * FROM server_settings WHERE guild_id = ?",
-                    (guild_id,),
-                )
-                server = cursor.fetchone()
+                return {
+                    "command_prefix": Config.PREFIX,
+                    "channel_id": Config.CHANNEL_ID,
+                    "grace_period_minutes": Config.GRACE_PERIOD_MINUTES,
+                    "fee_percentage_per_minute": Config.FEE_PERCENTAGE_PER_MINUTE,
+                    "max_single_away_minutes": Config.MAX_SINGLE_AWAY_MINUTES,
+                    "max_daily_away_minutes": Config.MAX_DAILY_AWAY_MINUTES,
+                    "work_start_hour": Config.WORK_START_TIME,
+                    "work_end_hour": Config.WORK_END_TIME,
+                }
 
             # Convert to dictionary
             columns = [description[0] for description in cursor.description]
@@ -178,6 +168,33 @@ class DatabaseManager:
             if not conn:
                 connection.close()
         return server_dict
+
+    def get_server_setting(self, guild_id, setting_name, conn=None):
+
+        connection = conn or sqlite3.connect(self.db_path)
+        cursor = connection.cursor()
+
+        try:
+            # Fetch the specific setting from the database
+            cursor.execute(
+                f"SELECT {setting_name} FROM server_settings WHERE guild_id = ?",
+                (guild_id,),
+            )
+            result = cursor.fetchone()
+
+            if result:
+                # Return the value of the setting
+                return result[0]
+            else:
+                return Config.__dict__.get(setting_name.upper())
+
+        except Exception as e:
+            print(f"Error while fetching server setting '{setting_name}': {e}")
+            return None
+
+        finally:
+            if not conn:
+                connection.close()
 
     def update_server_setting(self, guild_id, setting, value):
         """Update a specific setting for a server"""
@@ -210,22 +227,34 @@ class DatabaseManager:
 
         return True
 
-    def is_work_hours(self):
-        """Check if current time is within work hours (9 AM - 5 PM on weekdays)"""
-        # now = datetime.now()
-        # current_time = now.time()
+    def is_work_hours(self, settings):
+        """Check if current time is within work hours (e.g., 08:00 - 16:00 on weekdays)."""
+        now = datetime.now()
+        current_time = now.time()
 
-        # # Check if it's a weekday (0 = Monday, 4 = Friday)
-        # is_weekday = now.weekday() < 5
+        # Check if it's a weekday (0 = Monday, 4 = Friday)
+        is_weekday = now.weekday() < 5
 
-        # # Check if current time is between work hours
-        # is_work_time = self.WORK_START_TIME <= current_time <= self.WORK_END_TIME
+        # Convert work_start_hour and work_end_hour from strings to datetime.time objects
+        try:
+            work_start_hour = datetime.strptime(
+                settings["work_start_hour"], "%H:%M"
+            ).time()
+            work_end_hour = datetime.strptime(settings["work_end_hour"], "%H:%M").time()
 
-        # return is_weekday and is_work_time
-        return True
+            print("work_start_hour", work_start_hour)
+            print("work_end_hour", work_end_hour)
+        except ValueError as e:
+            self.logger.error(f"Error parsing work hours: {e}")
+            return False
 
-    def get_today_away_time(self, user_id):
-        """Get total away time for user today"""
+        # Check if current time is between work hours
+        is_work_time = work_start_hour <= current_time <= work_end_hour
+
+        return is_weekday and is_work_time
+
+    def get_today_away_time(self, user_id, guild_id):
+        """Get total away time for user today in a specific guild"""
         today = datetime.now().strftime("%Y-%m-%d")
 
         try:
@@ -235,10 +264,10 @@ class DatabaseManager:
             # Get from daily tracking
             cursor.execute(
                 """
-            SELECT total_minutes FROM away_daily
-            WHERE user_id = ? AND date = ?
-            """,
-                (user_id, today),
+                SELECT total_minutes FROM away_daily
+                WHERE user_id = ? AND date = ? AND guild_id = ?
+                """,
+                (user_id, today, guild_id),
             )
 
             result = cursor.fetchone()
@@ -251,8 +280,16 @@ class DatabaseManager:
             self.logger.error(f"Error getting daily away time: {e}")
             return 0
 
-    def update_daily_totals(self, user_id, user_name, minutes_away):
-        """Update daily totals for user away time"""
+    def update_daily_totals(
+        self,
+        user_id,
+        user_name,
+        guild_id,
+        minutes_away,
+        max_daily_minutes,
+        fee_percentage,
+    ):
+        """Update daily totals for user away time in a specific guild"""
         today = datetime.now().strftime("%Y-%m-%d")
 
         try:
@@ -262,10 +299,10 @@ class DatabaseManager:
             # Get current daily total
             cursor.execute(
                 """
-            SELECT total_minutes FROM away_daily
-            WHERE user_id = ? AND date = ?
-            """,
-                (user_id, today),
+                SELECT total_minutes FROM away_daily
+                WHERE user_id = ? AND date = ? AND guild_id = ?
+                """,
+                (user_id, today, guild_id),
             )
 
             result = cursor.fetchone()
@@ -273,31 +310,39 @@ class DatabaseManager:
             if result:
                 # Update existing record
                 new_total = result[0] + minutes_away
-                over_limit = max(0, new_total - self.MAX_DAILY_AWAY_MINUTES)
-                fee_amount = over_limit * self.FEE_PERCENTAGE_PER_MINUTE
+                over_limit = max(0, new_total - max_daily_minutes)
+                fee_amount = over_limit * fee_percentage
 
                 cursor.execute(
                     """
-                UPDATE away_daily
-                SET total_minutes = ?,
-                    over_limit_minutes = ?,
-                    fee_amount = ?
-                WHERE user_id = ? AND date = ?
-                """,
-                    (new_total, over_limit, fee_amount, user_id, today),
+                    UPDATE away_daily
+                    SET total_minutes = ?,
+                        over_limit_minutes = ?,
+                        fee_amount = ?
+                    WHERE user_id = ? AND date = ? AND guild_id = ?
+                    """,
+                    (new_total, over_limit, fee_amount, user_id, today, guild_id),
                 )
             else:
                 # Create new record
-                over_limit = max(0, minutes_away - self.MAX_DAILY_AWAY_MINUTES)
-                fee_amount = over_limit * self.FEE_PERCENTAGE_PER_MINUTE
+                over_limit = max(0, minutes_away - max_daily_minutes)
+                fee_amount = over_limit * fee_percentage
 
                 cursor.execute(
                     """
-                INSERT INTO away_daily
-                (user_id, user_name, date, total_minutes, over_limit_minutes, fee_amount)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                    (user_id, user_name, today, minutes_away, over_limit, fee_amount),
+                    INSERT INTO away_daily
+                    (user_id, user_name, guild_id, date, total_minutes, over_limit_minutes, fee_amount)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        user_id,
+                        user_name,
+                        guild_id,
+                        today,
+                        minutes_away,
+                        over_limit,
+                        fee_amount,
+                    ),
                 )
 
             conn.commit()
@@ -312,13 +357,14 @@ class DatabaseManager:
         self,
         user_id,
         user_name,
+        guild_id,
         start_time,
         end_time,
         expected_minutes,
         actual_minutes,
         fee_amount,
     ):
-        """Record a complete away session in the database"""
+        """Record a complete away session in the database for a specific guild"""
         today = start_time.strftime("%Y-%m-%d")
 
         try:
@@ -327,13 +373,14 @@ class DatabaseManager:
 
             cursor.execute(
                 """
-            INSERT INTO away_time
-            (user_id, user_name, date, start_time, end_time, expected_minutes, actual_minutes, fee_amount)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+                INSERT INTO away_time
+                (user_id, user_name, guild_id, date, start_time, end_time, expected_minutes, actual_minutes, fee_amount)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
                 (
                     user_id,
                     user_name,
+                    guild_id,
                     today,
                     start_time.strftime("%H:%M:%S"),
                     end_time.strftime("%H:%M:%S"),
@@ -346,13 +393,13 @@ class DatabaseManager:
             conn.commit()
             conn.close()
             self.logger.info(
-                f"Recorded away session for {user_name}: {actual_minutes} minutes"
+                f"Recorded away session for {user_name} in guild {guild_id}: {actual_minutes} minutes"
             )
         except Exception as e:
             self.logger.error(f"Error recording away session: {e}")
 
-    def _fetch_away_data(self, date, user_id=None):
-        """Fetch away data from the database."""
+    def _fetch_away_data(self, date, guild_id, user_id=None):
+        """Fetch away data from the database for a specific guild."""
         conn = self.get_connection()
         cursor = conn.cursor()
 
@@ -362,9 +409,9 @@ class DatabaseManager:
                 """
                 SELECT user_name, total_minutes, over_limit_minutes, fee_amount
                 FROM away_daily
-                WHERE user_id = ? AND date = ?
+                WHERE user_id = ? AND date = ? AND guild_id = ?
                 """,
-                (user_id, date),
+                (user_id, date, guild_id),
             )
             user_record = cursor.fetchone()
 
@@ -372,10 +419,10 @@ class DatabaseManager:
                 """
                 SELECT start_time, end_time, expected_minutes, actual_minutes, fee_amount
                 FROM away_time
-                WHERE user_id = ? AND date = ?
+                WHERE user_id = ? AND date = ? AND guild_id = ?
                 ORDER BY start_time
                 """,
-                (user_id, date),
+                (user_id, date, guild_id),
             )
             session_records = cursor.fetchall()
 
@@ -393,10 +440,10 @@ class DatabaseManager:
                 """
                 SELECT user_name, total_minutes, over_limit_minutes, fee_amount
                 FROM away_daily
-                WHERE date = ?
+                WHERE date = ? AND guild_id = ?
                 ORDER BY total_minutes DESC
                 """,
-                (date,),
+                (date, guild_id),
             )
             daily_records = cursor.fetchall()
 
@@ -404,10 +451,10 @@ class DatabaseManager:
                 """
                 SELECT user_name, start_time, end_time, expected_minutes, actual_minutes, fee_amount
                 FROM away_time
-                WHERE date = ?
+                WHERE date = ? AND guild_id = ?
                 ORDER BY start_time
                 """,
-                (date,),
+                (date, guild_id),
             )
             session_records = cursor.fetchall()
 
@@ -432,3 +479,102 @@ class DatabaseManager:
                 updated_daily_records.append(updated_daily_record)
 
             return updated_daily_records, session_records
+
+    def add_active_away_session(
+        self, user_id, user_name, guild_id, start_time, expected_minutes
+    ):
+        """
+        Add an active away session to the database.
+
+        Args:
+            user_id (int): The ID of the user.
+            user_name (str): The name of the user.
+            guild_id (int): The ID of the guild.
+            start_time (str): The start time of the away session.
+            expected_minutes (int): The expected duration of the away session in minutes.
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                INSERT INTO active_away_sessions
+                (user_id, user_name, guild_id, start_time, expected_minutes)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, guild_id) DO UPDATE SET
+                    start_time = excluded.start_time,
+                    expected_minutes = excluded.expected_minutes
+                """,
+                (user_id, user_name, guild_id, start_time, expected_minutes),
+            )
+
+            conn.commit()
+            conn.close()
+            self.logger.info(
+                f"Active away session added for user {user_name} (ID: {user_id}) in guild {guild_id}"
+            )
+        except Exception as e:
+            self.logger.error(f"Error adding active away session: {e}")
+
+    def remove_active_away_session(self, user_id, guild_id):
+        """
+        Remove an active away session from the database.
+
+        Args:
+            user_id (int): The ID of the user.
+            guild_id (int): The ID of the guild.
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                DELETE FROM active_away_sessions
+                WHERE user_id = ? AND guild_id = ?
+                """,
+                (user_id, guild_id),
+            )
+
+            conn.commit()
+            conn.close()
+            self.logger.info(
+                f"Active away session removed for user {user_id} in guild {guild_id}"
+            )
+        except Exception as e:
+            self.logger.error(f"Error removing active away session: {e}")
+
+    def get_active_away_session(self, user_id, guild_id):
+        """
+        Get an active away session for a user in a specific guild.
+
+        Args:
+            user_id (int): The ID of the user.
+            guild_id (int): The ID of the guild.
+
+        Returns:
+            dict: The active away session, or None if not found.
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT * FROM active_away_sessions
+                WHERE user_id = ? AND guild_id = ?
+                """,
+                (user_id, guild_id),
+            )
+
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                columns = [description[0] for description in cursor.description]
+                return dict(zip(columns, result))
+            return None
+        except Exception as e:
+            self.logger.error(f"Error fetching active away session: {e}")
+            return None

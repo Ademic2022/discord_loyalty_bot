@@ -21,7 +21,14 @@ class OnBoarding(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
         try:
+
             logger.info(f"Bot joined guild: {guild.name} (ID: {guild.id})")
+
+            # Save default configuration settings for the new guild
+            self.db.save_guild_config(guild.id, {})
+            logger.info(
+                f"Default configuration saved for guild: {guild.name} (ID: {guild.id})"
+            )
 
             # Find the best channel to send the welcome message
             target_channel = None

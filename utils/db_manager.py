@@ -371,6 +371,9 @@ class DatabaseManager:
             conn = self.get_connection()
             cursor = conn.cursor()
 
+            start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+            end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
+
             cursor.execute(
                 """
                 INSERT INTO away_time
@@ -382,8 +385,8 @@ class DatabaseManager:
                     user_name,
                     guild_id,
                     today,
-                    start_time.strftime("%H:%M:%S"),
-                    end_time.strftime("%H:%M:%S"),
+                    start_time,
+                    end_time,
                     expected_minutes,
                     actual_minutes,
                     fee_amount,
@@ -496,6 +499,8 @@ class DatabaseManager:
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
+
+            start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
 
             cursor.execute(
                 """

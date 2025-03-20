@@ -240,21 +240,22 @@ class LoyaltyTracker(commands.Cog):
         """Manually set a user as away (admin only)"""
         try:
             user_id = user.id
+            guild_id = ctx.guild.id
 
             # Check if user is already away
-            if user_id in self.away_users:
+            active_session = self.db.get_active_away_session(user_id, guild_id)
+            if active_session:
                 await ctx.send(f"❌ {user.mention} is already marked as away.")
                 return
 
             # Record away status
             now = datetime.now()
-            total_today = self.db.get_today_away_time(user_id)
+            # total_today = self.db.get_today_away_time(user_id, guild_id)
 
-            self.away_users[user_id] = {
-                "start_time": now,
-                "expected_minutes": minutes,
-                "total_today": total_today,
-            }
+            # Add the active away session to the database
+            self.db.add_active_away_session(
+                user_id, user.display_name, guild_id, now, minutes
+            )
             embed = EmbedHandler.manual_away_message_embed(ctx, user, minutes)
             await ctx.send(embed=embed)
 
@@ -376,6 +377,7 @@ class LoyaltyTracker(commands.Cog):
             start_time = datetime.strptime(
                 active_session["start_time"], "%Y-%m-%d %H:%M:%S"
             )
+
             expected_minutes = active_session["expected_minutes"]
 
             time_diff = now - start_time

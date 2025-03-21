@@ -483,9 +483,7 @@ class DatabaseManager:
 
             return updated_daily_records, session_records
 
-    def add_active_away_session(
-        self, user_id, user_name, guild_id, start_time, expected_minutes
-    ):
+    def add_active_away_session(self, user_id, user_name, guild_id, expected_minutes):
         """
         Add an active away session to the database.
 
@@ -500,7 +498,8 @@ class DatabaseManager:
             conn = self.get_connection()
             cursor = conn.cursor()
 
-            start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+            now = datetime.now()
+            start_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
             cursor.execute(
                 """

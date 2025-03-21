@@ -248,13 +248,9 @@ class LoyaltyTracker(commands.Cog):
                 await ctx.send(f"❌ {user.mention} is already marked as away.")
                 return
 
-            # Record away status
-            now = datetime.now()
-            # total_today = self.db.get_today_away_time(user_id, guild_id)
-
             # Add the active away session to the database
             self.db.add_active_away_session(
-                user_id, user.display_name, guild_id, now, minutes
+                user_id, user.display_name, guild_id, minutes
             )
             embed = EmbedHandler.manual_away_message_embed(ctx, user, minutes)
             await ctx.send(embed=embed)
@@ -343,16 +339,13 @@ class LoyaltyTracker(commands.Cog):
                 )
 
             # Record away status in the database
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            self.db.add_active_away_session(
-                user_id, user_name, guild_id, now, minutes_away
-            )
+            self.db.add_active_away_session(user_id, user_name, guild_id, minutes_away)
 
             # Acknowledge
             channel = self.bot.get_channel(settings["channel_id"])
             await MessageHandler.away_acknowledge(message, minutes_away, channel)
             self.logger.info(
-                f"User {user_name} ({user_id}) marked away for {minutes_away} minutes at {now}"
+                f"User {user_name} ({user_id}) marked away for {minutes_away} minutes at {datetime.now()}"
             )
         except Exception as e:
             self.logger.error(f"Error in _handle_away_message: {e}")

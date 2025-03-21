@@ -140,7 +140,7 @@ class OnBoarding(commands.Cog):
                         )
 
                         dm_view = View(timeout=None)
-                        dm_view.add_item(setup_dm_button)
+                        # dm_view.add_item(setup_dm_button)
                         dm_view.add_item(help_dm_button)
 
                         await owner.send(

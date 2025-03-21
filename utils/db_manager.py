@@ -243,8 +243,6 @@ class DatabaseManager:
             ).time()
             work_end_hour = datetime.strptime(settings["work_end_hour"], "%H:%M").time()
 
-            print("work_start_hour", work_start_hour)
-            print("work_end_hour", work_end_hour)
         except ValueError as e:
             self.logger.error(f"Error parsing work hours: {e}")
             return False
@@ -369,10 +367,7 @@ class DatabaseManager:
     ):
         """Record a complete away session in the database for a specific guild"""
         today = datetime.now().strftime("%Y-%m-%d")
-        print("Today:", today)
-        print("Start time:", start_time)
-        print("start_time type:", type(start_time))
-
+        
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
@@ -580,8 +575,6 @@ class DatabaseManager:
 
             result = cursor.fetchone()
             conn.close()
-
-            print("Active away session result:", result)
 
             if result:
                 columns = [description[0] for description in cursor.description]

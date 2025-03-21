@@ -20,7 +20,6 @@ class LoyaltyTracker(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         """Listen for messages indicating a user is going away or returning"""
-        # print("message", message)
         try:
             # Ignore messages from bots
             if message.author.bot:
@@ -178,7 +177,6 @@ class LoyaltyTracker(commands.Cog):
     @commands.command(name="awaystatus")
     async def away_status(self, ctx, settings=None):
         """Check your current away status and remaining time"""
-        print("ctx", ctx)
         try:
             guild_id = ctx.guild.id
             if not settings:
@@ -370,7 +368,6 @@ class LoyaltyTracker(commands.Cog):
             # Calculate time away
             now = datetime.now().time()
             start_time = active_session["start_time"] # Time object
-            print("start_time", type(start_time))
 
             expected_minutes = active_session["expected_minutes"]
 

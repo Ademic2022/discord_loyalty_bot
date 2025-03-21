@@ -1,5 +1,6 @@
 import re
 import logging
+import traceback
 import discord
 from discord.ext import commands
 from datetime import datetime
@@ -68,6 +69,7 @@ class LoyaltyTracker(commands.Cog):
                 await self._handle_return_message(message, settings)
                 return
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error in on_message: {e}")
             await message.channel.send(
                 "An error occurred while processing your message."
@@ -188,13 +190,13 @@ class LoyaltyTracker(commands.Cog):
             # Check if user is currently away
             active_session = self.db.get_active_away_session(user_id, guild_id)
             if active_session:
-                now = datetime.now()
-                start_time = datetime.strptime(
-                    active_session["start_time"], "%Y-%m-%d %H:%M:%S"
-                )
+                now = datetime.now().time()
+                start_time = active_session["start_time"]
                 expected_minutes = active_session["expected_minutes"]
 
-                time_diff = now - start_time
+                time_diff = datetime.combine(datetime.today(), now) - datetime.combine(
+                    datetime.today(), start_time
+                )
                 elapsed_minutes = int(time_diff.total_seconds() / 60)
                 remaining_minutes = max(0, expected_minutes - elapsed_minutes)
 
@@ -366,14 +368,15 @@ class LoyaltyTracker(commands.Cog):
                 return  # User wasn't marked as away
 
             # Calculate time away
-            now = datetime.now()
-            start_time = datetime.strptime(
-                active_session["start_time"], "%Y-%m-%d %H:%M:%S"
-            )
+            now = datetime.now().time()
+            start_time = active_session["start_time"] # Time object
+            print("start_time", type(start_time))
 
             expected_minutes = active_session["expected_minutes"]
 
-            time_diff = now - start_time
+            time_diff = datetime.combine(datetime.today(), now) - datetime.combine(
+                datetime.today(), start_time
+            )
             actual_minutes = int(time_diff.total_seconds() / 60)
 
             # Calculate lateness beyond grace period
@@ -394,8 +397,8 @@ class LoyaltyTracker(commands.Cog):
                 user_id,
                 user_name,
                 message.guild.id,
-                start_time,
-                now,
+                datetime.combine(datetime.today(), start_time).strftime("%H:%M:%S"), # Time string
+                now.strftime("%H:%M:%S"),
                 expected_minutes,
                 actual_minutes,
                 accumulated_percentage,
@@ -449,6 +452,7 @@ class LoyaltyTracker(commands.Cog):
                 f"User {user_name} ({user_id}) returned after {actual_minutes} minutes, expected {expected_minutes}"
             )
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error in _handle_return_message: {e}")
             await message.channel.send(
                 "An error occurred while processing your return message."

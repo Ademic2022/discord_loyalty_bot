@@ -2,6 +2,7 @@ import sqlite3
 import logging
 from datetime import datetime
 from config import Config
+import traceback
 
 
 class DatabaseManager:
@@ -277,6 +278,7 @@ class DatabaseManager:
                 return result[0]
             return 0
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error getting daily away time: {e}")
             return 0
 
@@ -350,6 +352,7 @@ class DatabaseManager:
 
             return over_limit, fee_amount
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error updating daily totals: {e}")
             return 0, 0
 
@@ -365,14 +368,14 @@ class DatabaseManager:
         fee_amount,
     ):
         """Record a complete away session in the database for a specific guild"""
-        today = start_time.strftime("%Y-%m-%d")
+        today = datetime.now().strftime("%Y-%m-%d")
+        print("Today:", today)
+        print("Start time:", start_time)
+        print("start_time type:", type(start_time))
 
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
-
-            start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
-            end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
 
             cursor.execute(
                 """
@@ -399,6 +402,7 @@ class DatabaseManager:
                 f"Recorded away session for {user_name} in guild {guild_id}: {actual_minutes} minutes"
             )
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error recording away session: {e}")
 
     def _fetch_away_data(self, date, guild_id, user_id=None):
@@ -499,7 +503,7 @@ class DatabaseManager:
             cursor = conn.cursor()
 
             now = datetime.now()
-            start_time = now.strftime("%Y-%m-%d %H:%M:%S")
+            start_time = now.strftime("%H:%M:%S")
 
             cursor.execute(
                 """
@@ -519,6 +523,7 @@ class DatabaseManager:
                 f"Active away session added for user {user_name} (ID: {user_id}) in guild {guild_id}"
             )
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error adding active away session: {e}")
 
     def remove_active_away_session(self, user_id, guild_id):
@@ -547,6 +552,7 @@ class DatabaseManager:
                 f"Active away session removed for user {user_id} in guild {guild_id}"
             )
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error removing active away session: {e}")
 
     def get_active_away_session(self, user_id, guild_id):
@@ -575,10 +581,17 @@ class DatabaseManager:
             result = cursor.fetchone()
             conn.close()
 
+            print("Active away session result:", result)
+
             if result:
                 columns = [description[0] for description in cursor.description]
-                return dict(zip(columns, result))
+                session = dict(zip(columns, result))
+                session["start_time"] = datetime.strptime(
+                    session["start_time"], "%H:%M:%S"
+                ).time()
+                return session
             return None
         except Exception as e:
+            traceback.print_exc()
             self.logger.error(f"Error fetching active away session: {e}")
             return None

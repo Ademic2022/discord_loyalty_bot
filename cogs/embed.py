@@ -567,11 +567,11 @@ class EmbedHandler:
         # Additional Information
         embed.add_field(
             name="📝 **Additional Information**",
-            value="For more details, visit the [documentation](https://example.com/docs).",
+            value="For more details, visit the [documentation](https://voltislab.com/docs).",
             inline=False,
         )
 
         # Footer
-        embed.set_footer(text="Need more help? Contact support@example.com.")
+        embed.set_footer(text="Need more help? Contact support@voltislab.com.")
 
         return embed
